@@ -1,0 +1,15 @@
+# Context
+
+## Background
+Initial commit of the GitPickle workspace. GitPickle is a self-hosted
+application for independent Git repository recovery, proposed in
+gitpickle.md. Recovery of version 1 archives works without the
+original server or GitHub, using native Git and Python 3.
+
+## Why This Way
+The Rust workspace is split by layer (domain, application,
+adapters, interfaces, CLI) following docs/adr/0001. TLA+
+specifications and recorded evidence in spec/ cover archive
+commits, job replay, and plan approval. Python tools under
+tools/ drive workflows that the Rust executable does not
+cover yet; hosting remains under development.
