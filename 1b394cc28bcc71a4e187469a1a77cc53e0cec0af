@@ -1,0 +1,28 @@
+# Context
+
+## Background
+This commit integrates the work produced by the Looper run
+(session run-58f364dd4667b5a2) on the development machine.
+Workers completed 49 of 58 backlog tasks; the working tree was
+committed as a whole after the final product review passed.
+
+## Why This Way
+The Looper controller keeps its own refs (refs/looper/*), but
+master had not received the integrated result. A single squash
+style commit captures the reviewed state; per-task history
+remains in the Looper runtime and its review logs.
+
+## Verification
+Final review on 15 October 2026 ran 116 local checks; 115
+passed. The one failure is expected: the installed-binary MCP
+check requires a release binary, and none was built yet.
+
+## Gotchas
+- Known defect carried in this tree: repositories added after
+  setup fail capture authorization when include_future is on
+  (tools/gitpickle_setup.py:172-178). Recorded as a finding on
+  done task T015; no open task owns the fix yet.
+
+## Related
+- docs/final-validation-unblock.md
+- docs/implementation-acceptance.md
