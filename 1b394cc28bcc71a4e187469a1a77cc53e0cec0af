@@ -1,0 +1,9 @@
+# Follow-ups left open by this commit
+
+- Build the release binary (cargo build --release); none exists.
+- Fix or task the include_future capture defect in
+  tools/gitpickle_setup.py:172-178.
+- Owner-blocked final-validation tasks: T032, T033, T053, T055,
+  T058. See docs/final-validation-unblock.md for steps.
+- Downstream tasks resume after unblocking: T051, T054, T037,
+  T056.
