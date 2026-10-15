@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "suite": "pr",
+  "tlc_release": "1.7.4",
+  "tlc_version": "2.19 of 08 August 2024",
+  "jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "java": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment (build 21.0.12.1+1-1-24.04.4-Ubuntu)\nOpenJDK 64-Bit Server VM (build 21.0.12.1+1-1-24.04.4-Ubuntu, mixed mode, sharing)\n",
+  "assumptions_sha256": "c5a661a69363cb4274c8913fb72ec92faa5ed039a9b460ca9f923bb2ee26c331",
+  "runs": [
+    {
+      "model": "ArchiveCommit",
+      "status": "incomplete",
+      "exit_code": null,
+      "specification_sha256": "6572d2f0cae016126ed3cf1b0c400d14a912ca8738c1f60c6ae09ed5f973e5aa",
+      "configuration_sha256": "daa8bf2a9ff1d25a338a3207a40ddcead33f8b1a00662311fa7b4d4a2cdadf68",
+      "configuration": "SPECIFICATION Spec\nCONSTANTS\nObjects = {o0,o1,o2}\nPoints = {p1,p2}\nAttempts = {a1,a2}\nUnsafe = FALSE\nINVARIANTS TypeOK CompletePointIsClosed VerificationIsEarned AcknowledgmentIsDurable\nPROPERTY SourceLossDoesNotEraseHistory\n",
+      "runtime_seconds": 0.0019155769987264648,
+      "generated_states": null,
+      "distinct_states": null,
+      "command": [
+        "java",
+        "-Xmx1g",
+        "-cp",
+        "/tmp/gitpickle-tlc-1.7.4.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-seed",
+        "1",
+        "-fp",
+        "0",
+        "-metadir",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-74a055fec0491339/spec/results/looper_154ffcf42f6680263b1f-as4oyiy6/ArchiveCommit",
+        "-config",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-74a055fec0491339/spec/config/ArchiveCommit-pr.cfg",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-74a055fec0491339/spec/ArchiveCommit.tla"
+      ],
+      "log": "spec/evidence/timeout-ArchiveCommit.log"
+    },
+    {
+      "model": "JobReplay",
+      "status": "incomplete",
+      "exit_code": null,
+      "specification_sha256": "d4677f06a553704efd34cfd2151275354fe0857f0fd4c2953df2d3ca7540036b",
+      "configuration_sha256": "5b7db863aadccba4824dafc234abe18b8c3ebf8126166822886ba0eeb1c137b5",
+      "configuration": "SPECIFICATION Spec\nCONSTANTS\nJobs = {j1}\nArguments = {d1,d2}\nAttempts = {a1,a2}\nUnsafe = FALSE\nINVARIANTS TypeOK ReplayIsConsistent AcceptanceIsDurable TerminalIsDurable\n",
+      "runtime_seconds": 0.0016893659994821064,
+      "generated_states": null,
+      "distinct_states": null,
+      "command": [
+        "java",
+        "-Xmx1g",
+        "-cp",
+        "/tmp/gitpickle-tlc-1.7.4.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-seed",
+        "1",
+        "-fp",
+        "0",
+        "-metadir",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-74a055fec0491339/spec/results/looper_154ffcf42f6680263b1f-as4oyiy6/JobReplay",
+        "-config",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-74a055fec0491339/spec/config/JobReplay-pr.cfg",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-74a055fec0491339/spec/JobReplay.tla"
+      ],
+      "log": "spec/evidence/timeout-JobReplay.log"
+    }
+  ]
+}

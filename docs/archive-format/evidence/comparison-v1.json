@@ -1,0 +1,152 @@
+{
+  "version": 1,
+  "profile": "smoke",
+  "git": "git version 2.47.1",
+  "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+  "rows": [
+    {
+      "fixture": "empty-and-tiny",
+      "repository": "empty.git",
+      "fixture_digest": "1272561fe926a00acb29365db1613181c7a6636751497b6e58a2ad7ed3fb4b7e",
+      "strategy": "full-bundle",
+      "generations": 3,
+      "git_payload_bytes": 0,
+      "git_payload_writes": 0,
+      "capture_seconds": 0,
+      "restore_seconds": 0,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "empty-and-tiny",
+      "repository": "empty.git",
+      "fixture_digest": "1272561fe926a00acb29365db1613181c7a6636751497b6e58a2ad7ed3fb4b7e",
+      "strategy": "reusable-pack",
+      "generations": 3,
+      "git_payload_bytes": 0,
+      "git_payload_writes": 0,
+      "capture_seconds": 0.011735172003682237,
+      "restore_seconds": 0.022696388994518202,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "empty-and-tiny",
+      "repository": "empty.git",
+      "fixture_digest": "1272561fe926a00acb29365db1613181c7a6636751497b6e58a2ad7ed3fb4b7e",
+      "strategy": "bounded-incremental",
+      "generations": 3,
+      "git_payload_bytes": 0,
+      "git_payload_writes": 0,
+      "capture_seconds": 0,
+      "restore_seconds": 0,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "empty-and-tiny",
+      "repository": "tiny.git",
+      "fixture_digest": "1272561fe926a00acb29365db1613181c7a6636751497b6e58a2ad7ed3fb4b7e",
+      "strategy": "full-bundle",
+      "generations": 3,
+      "git_payload_bytes": 9435,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.0084470110014081,
+      "restore_seconds": 0.06359019400406396,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "empty-and-tiny",
+      "repository": "tiny.git",
+      "fixture_digest": "1272561fe926a00acb29365db1613181c7a6636751497b6e58a2ad7ed3fb4b7e",
+      "strategy": "reusable-pack",
+      "generations": 3,
+      "git_payload_bytes": 3204,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.08062725600029808,
+      "restore_seconds": 0.10489053299534135,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "empty-and-tiny",
+      "repository": "tiny.git",
+      "fixture_digest": "1272561fe926a00acb29365db1613181c7a6636751497b6e58a2ad7ed3fb4b7e",
+      "strategy": "bounded-incremental",
+      "generations": 3,
+      "git_payload_bytes": 6772,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.008081863998086192,
+      "restore_seconds": 0.0691525929942145,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "history-rewritten",
+      "repository": "source.git",
+      "fixture_digest": "225344cd3c13b88bfe30c28df104cfca7a297f5e6bdcdaaf3b0db3b8b01b2ff7",
+      "strategy": "full-bundle",
+      "generations": 3,
+      "git_payload_bytes": 26467,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.008961171995906625,
+      "restore_seconds": 0.05776645400328562,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "history-rewritten",
+      "repository": "source.git",
+      "fixture_digest": "225344cd3c13b88bfe30c28df104cfca7a297f5e6bdcdaaf3b0db3b8b01b2ff7",
+      "strategy": "reusable-pack",
+      "generations": 3,
+      "git_payload_bytes": 8973,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.06761666099919239,
+      "restore_seconds": 0.09078444500482874,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "history-rewritten",
+      "repository": "source.git",
+      "fixture_digest": "225344cd3c13b88bfe30c28df104cfca7a297f5e6bdcdaaf3b0db3b8b01b2ff7",
+      "strategy": "bounded-incremental",
+      "generations": 3,
+      "git_payload_bytes": 17959,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.007945156998175662,
+      "restore_seconds": 0.06767196599685121,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "lfs-2g",
+      "repository": "source.git",
+      "fixture_digest": "1b8f7060c6822f3ff8723511099aa750b6f701359a2cd1f063a249223b83a352",
+      "strategy": "full-bundle",
+      "generations": 3,
+      "git_payload_bytes": 13623,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.008446640000329353,
+      "restore_seconds": 0.06487736199778738,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "lfs-2g",
+      "repository": "source.git",
+      "fixture_digest": "1b8f7060c6822f3ff8723511099aa750b6f701359a2cd1f063a249223b83a352",
+      "strategy": "reusable-pack",
+      "generations": 3,
+      "git_payload_bytes": 4599,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.17663905000517843,
+      "restore_seconds": 0.1048685799978557,
+      "correctness": "passed"
+    },
+    {
+      "fixture": "lfs-2g",
+      "repository": "source.git",
+      "fixture_digest": "1b8f7060c6822f3ff8723511099aa750b6f701359a2cd1f063a249223b83a352",
+      "strategy": "bounded-incremental",
+      "generations": 3,
+      "git_payload_bytes": 12284,
+      "git_payload_writes": 3,
+      "capture_seconds": 0.00892275200021686,
+      "restore_seconds": 0.06314971199753927,
+      "correctness": "passed"
+    }
+  ]
+}

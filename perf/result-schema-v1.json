@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "urn:gitpickle:benchmark-result:1",
+  "title": "GitPickle benchmark result version 1",
+  "type": "object",
+  "required": ["schema_version", "record_kind", "scope", "status", "commit", "source_dirty", "harness_sha256", "environment", "runner_fingerprint", "suite", "repetitions", "expected_scenarios", "rows", "comparison"],
+  "properties": {
+    "schema_version": {"const": 1},
+    "record_kind": {"const": "measured"},
+    "scope": {"const": "native-git-local-storage-reference"},
+    "status": {"enum": ["incomplete", "invalid", "complete"]},
+    "commit": {"type": "string", "pattern": "^[0-9a-f]{40,64}$"},
+    "source_dirty": {"type": "boolean"},
+    "harness_sha256": {"$ref": "#/$defs/digest"},
+    "runner_fingerprint": {"$ref": "#/$defs/digest"},
+    "environment": {
+      "type": "object",
+      "required": ["architecture", "kernel", "os", "python", "git", "git_lfs", "rustc", "cpu", "cpu_count", "memory", "filesystem", "build_profile", "storage_mode", "transport", "bandwidth", "rtt", "tls", "region", "endpoint", "concurrency", "resource_method"]
+    },
+    "suite": {"type": "string"},
+    "repetitions": {"type": "integer", "minimum": 1},
+    "expected_scenarios": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string"}},
+    "rows": {"type": "array", "items": {"$ref": "#/$defs/row"}},
+    "comparison": {"oneOf": [{"const": "not_run"}, {"type": "array"}]},
+    "error": {"type": "string"}
+  },
+  "$defs": {
+    "digest": {"type": "string", "pattern": "^[0-9a-f]{64}$"},
+    "nonnegative": {"type": "number", "minimum": 0},
+    "row": {
+      "type": "object",
+      "required": ["scenario", "scenario_version", "fixture_version", "fixture_digest", "fixture_manifest", "cache_state", "raw_samples", "metrics", "correctness"],
+      "properties": {
+        "scenario": {"type": "string"},
+        "scenario_version": {"const": 1},
+        "fixture_version": {"const": 1},
+        "fixture_digest": {"$ref": "#/$defs/digest"},
+        "fixture_manifest": {"type": "object", "required": ["schema_version", "fixture_version", "fixture", "seed", "profile", "git_version", "generator", "repositories", "lfs", "historical", "faults", "lfs_bytes", "fixture_digest"]},
+        "cache_state": {"type": "string"},
+        "raw_samples": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/sample"}},
+        "metrics": {"type": "object", "required": ["elapsed_ms_median", "elapsed_ms_p95", "median_ci95_ms", "uncertainty"]},
+        "correctness": {"const": "passed"}
+      }
+    },
+    "sample": {
+      "type": "object",
+      "required": ["elapsed_ms", "stages_ms", "logical_new_bytes", "changed_repositories", "upload_amplification", "process_tree_peak_rss_bytes", "harness_peak_rss_bytes", "cpu_seconds", "staging_cache_peak_disk_bytes", "resource_samples", "resource_interval_ms", "storage_requests", "retries", "uploaded_bytes", "downloaded_bytes", "native_git_pack_received_bytes", "git_lfs_payload_uploaded_bytes", "retained_bytes", "storage_events", "correctness"],
+      "properties": {
+        "elapsed_ms": {"$ref": "#/$defs/nonnegative"},
+        "stages_ms": {"type": "object", "minProperties": 1, "additionalProperties": {"$ref": "#/$defs/nonnegative"}},
+        "resource_samples": {"type": "integer", "minimum": 1},
+        "storage_requests": {"type": "object", "required": ["PUT", "GET", "HEAD", "LIST"], "additionalProperties": {"type": "integer", "minimum": 0}},
+        "storage_events": {"type": "array", "items": {"type": "object", "required": ["operation", "key", "uploaded_bytes", "downloaded_bytes", "outcome", "retry"]}},
+        "correctness": {"type": "object", "required": ["outcome", "verified_refs", "verified_lfs", "missing_dependencies", "lost_acknowledged_updates"], "properties": {"outcome": {"const": "passed"}, "missing_dependencies": {"const": 0}, "lost_acknowledged_updates": {"const": 0}}}
+      }
+    }
+  }
+}

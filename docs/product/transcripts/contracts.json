@@ -1,0 +1,284 @@
+[
+  {
+    "name": "protection accepted",
+    "command": "gitpickle protect github --json",
+    "exit": 0,
+    "check": false,
+    "healthy": true,
+    "result": {
+      "schema_version": 1,
+      "observed_at_unix_seconds": 1791979200,
+      "scope": {
+        "repository_ids": [
+          "repo_1"
+        ],
+        "archive_id": "archive_1"
+      },
+      "outcome": "queued",
+      "job_id": "job_1",
+      "coverage_gaps": [],
+      "evidence_ids": [],
+      "next_action": {
+        "operation": "jobs_get",
+        "arguments": {
+          "job_id": "job_1"
+        }
+      },
+      "data": {
+        "policy_revision": 1,
+        "capture_interval_seconds": 21600,
+        "discovery_interval_seconds": 86400,
+        "include_future_authorized": true
+      },
+      "error": null
+    }
+  },
+  {
+    "name": "unchanged source is current",
+    "command": "gitpickle status --json",
+    "exit": 0,
+    "check": false,
+    "healthy": true,
+    "result": {
+      "schema_version": 1,
+      "observed_at_unix_seconds": 1791979200,
+      "scope": {
+        "repository_ids": [
+          "repo_1"
+        ],
+        "archive_id": "archive_1"
+      },
+      "outcome": "ok",
+      "job_id": null,
+      "coverage_gaps": [],
+      "evidence_ids": [
+        "evidence_1"
+      ],
+      "next_action": null,
+      "data": {
+        "current_and_verified": 1,
+        "restore_tested_repositories": 0,
+        "not_included": [
+          "issues",
+          "pull_requests",
+          "release_assets"
+        ]
+      },
+      "error": null
+    }
+  },
+  {
+    "name": "incomplete coverage query",
+    "command": "gitpickle status --json",
+    "exit": 0,
+    "check": false,
+    "healthy": false,
+    "result": {
+      "schema_version": 1,
+      "observed_at_unix_seconds": 1791979200,
+      "scope": {
+        "repository_ids": [
+          "repo_1"
+        ],
+        "archive_id": "archive_1"
+      },
+      "outcome": "ok",
+      "job_id": null,
+      "coverage_gaps": [
+        {
+          "repository_id": "repo_1",
+          "component": "lfs",
+          "code": "incomplete_coverage"
+        }
+      ],
+      "evidence_ids": [],
+      "next_action": {
+        "operation": "backup_run",
+        "arguments": {
+          "repository_ids": [
+            "repo_1"
+          ]
+        }
+      },
+      "data": {
+        "current_and_verified": 0,
+        "last_complete_point": "point_1"
+      },
+      "error": null
+    }
+  },
+  {
+    "name": "incomplete coverage health check",
+    "command": "gitpickle status --check --json",
+    "exit": 6,
+    "check": true,
+    "healthy": false,
+    "result": {
+      "schema_version": 1,
+      "observed_at_unix_seconds": 1791979200,
+      "scope": {
+        "repository_ids": [
+          "repo_1"
+        ],
+        "archive_id": "archive_1"
+      },
+      "outcome": "ok",
+      "job_id": null,
+      "coverage_gaps": [
+        {
+          "repository_id": "repo_1",
+          "component": "lfs",
+          "code": "incomplete_coverage"
+        }
+      ],
+      "evidence_ids": [],
+      "next_action": {
+        "operation": "backup_run",
+        "arguments": {
+          "repository_ids": [
+            "repo_1"
+          ]
+        }
+      },
+      "data": {
+        "current_and_verified": 0
+      },
+      "error": null
+    }
+  },
+  {
+    "name": "storage only recovery preview",
+    "command": "gitpickle restore --from-storage --json",
+    "exit": 0,
+    "check": false,
+    "healthy": true,
+    "result": {
+      "schema_version": 1,
+      "observed_at_unix_seconds": 1791979200,
+      "scope": {
+        "repository_ids": [
+          "repo_1"
+        ],
+        "archive_id": "archive_1"
+      },
+      "outcome": "ok",
+      "job_id": null,
+      "coverage_gaps": [],
+      "evidence_ids": [],
+      "next_action": {
+        "operation": "plan_apply",
+        "arguments": {
+          "plan_id": "plan_1"
+        }
+      },
+      "data": {
+        "plan_id": "plan_1",
+        "selection": "newest_complete_verified",
+        "point_id": "point_1",
+        "destination": "./recovered/project",
+        "overwrite": false,
+        "requires_source": false
+      },
+      "error": null
+    }
+  },
+  {
+    "name": "verified recovery",
+    "command": "gitpickle jobs get job_2 --json",
+    "exit": 0,
+    "check": false,
+    "healthy": true,
+    "result": {
+      "schema_version": 1,
+      "observed_at_unix_seconds": 1791979200,
+      "scope": {
+        "repository_ids": [
+          "repo_1"
+        ],
+        "archive_id": "archive_1"
+      },
+      "outcome": "verified",
+      "job_id": "job_2",
+      "coverage_gaps": [],
+      "evidence_ids": [
+        "restore_evidence_1"
+      ],
+      "next_action": null,
+      "data": {
+        "point_id": "point_1",
+        "components": [
+          "git",
+          "lfs",
+          "wiki"
+        ]
+      },
+      "error": null
+    }
+  },
+  {
+    "name": "mirror rejects push",
+    "command": "git push pickle main",
+    "exit": 4,
+    "check": false,
+    "healthy": true,
+    "result": {
+      "schema_version": 1,
+      "observed_at_unix_seconds": 1791979200,
+      "scope": {
+        "repository_ids": [
+          "repo_1"
+        ],
+        "archive_id": "archive_1"
+      },
+      "outcome": "failed",
+      "job_id": null,
+      "coverage_gaps": [],
+      "evidence_ids": [],
+      "next_action": {
+        "operation": "hosting_plan",
+        "arguments": {
+          "repository_id": "repo_1",
+          "mode": "hosted"
+        }
+      },
+      "data": null,
+      "error": {
+        "code": "read_only",
+        "message": "Protected mirrors reject pushes.",
+        "retry": {
+          "kind": "never"
+        }
+      }
+    }
+  },
+  {
+    "name": "hosted generation committed",
+    "command": "gitpickle jobs get job_3 --json",
+    "exit": 0,
+    "check": false,
+    "healthy": true,
+    "result": {
+      "schema_version": 1,
+      "observed_at_unix_seconds": 1791979200,
+      "scope": {
+        "repository_ids": [
+          "repo_1"
+        ],
+        "archive_id": "archive_1"
+      },
+      "outcome": "committed",
+      "job_id": "job_3",
+      "coverage_gaps": [],
+      "evidence_ids": [
+        "publication_1"
+      ],
+      "next_action": null,
+      "data": {
+        "mode": "hosted",
+        "generation_id": "generation_1",
+        "source_updates_paused": true
+      },
+      "error": null
+    }
+  }
+]

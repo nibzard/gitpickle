@@ -1,0 +1,21 @@
+[package]
+name = "gitpickle"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+publish.workspace = true
+
+[lints]
+workspace = true
+
+[dependencies]
+gitpickle-application.workspace = true
+gitpickle-adapters.workspace = true
+gitpickle-interfaces.workspace = true
+
+[[test]]
+name = "cli_contract"
+path = "../../tests/cli_contract.rs"
+
+[dev-dependencies]
+tempfile = "=3.23.0"

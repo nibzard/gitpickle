@@ -1,0 +1,1 @@
+{"archive_id":"retained-v1-compatibility","kind":"control","operation_id":"5af04a47-4696-4b67-ab2e-1d44f9916d87","payload":{"components":["git","lfs"],"point":"repos/empty/points/2af5dc37fa77a50852ab07e380f243fcf6c7370ef5041c32b9f56d35a30576c3","repository_id":"empty"},"predecessor":null,"record_type":"source_observation","recorded_at":"2026-10-15T10:32:00.660418Z","version":1}

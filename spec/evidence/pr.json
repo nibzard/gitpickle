@@ -1,0 +1,71 @@
+{
+  "schema_version": 1,
+  "suite": "pr",
+  "tlc_release": "1.7.4",
+  "tlc_version": "2.19 of 08 August 2024",
+  "jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "java": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment (build 21.0.12.1+1-1-24.04.4-Ubuntu)\nOpenJDK 64-Bit Server VM (build 21.0.12.1+1-1-24.04.4-Ubuntu, mixed mode, sharing)\n",
+  "assumptions_sha256": "d079de946d782f837d1165aaa6feda5d7fa95303adc806a8b44393b0664e58c9",
+  "runs": [
+    {
+      "model": "ArchiveCommit",
+      "status": "complete",
+      "exit_code": 0,
+      "specification_sha256": "6572d2f0cae016126ed3cf1b0c400d14a912ca8738c1f60c6ae09ed5f973e5aa",
+      "configuration_sha256": "daa8bf2a9ff1d25a338a3207a40ddcead33f8b1a00662311fa7b4d4a2cdadf68",
+      "configuration": "SPECIFICATION Spec\nCONSTANTS\nObjects = {o0,o1,o2}\nPoints = {p1,p2}\nAttempts = {a1,a2}\nUnsafe = FALSE\nINVARIANTS TypeOK CompletePointIsClosed VerificationIsEarned AcknowledgmentIsDurable\nPROPERTY SourceLossDoesNotEraseHistory\n",
+      "runtime_seconds": 1.3614803109958302,
+      "generated_states": 7377,
+      "distinct_states": 568,
+      "command": [
+        "java",
+        "-Xmx1g",
+        "-cp",
+        "<repository>/spec/tools/tla2tools-1.7.4.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-seed",
+        "1",
+        "-fp",
+        "0",
+        "-metadir",
+        "<repository>/spec/results/looper_154ffcf42f6680263b1f-a5c6fjio/ArchiveCommit",
+        "-config",
+        "<repository>/spec/config/ArchiveCommit-pr.cfg",
+        "<repository>/spec/ArchiveCommit.tla"
+      ],
+      "log": "spec/evidence/pr-ArchiveCommit.log"
+    },
+    {
+      "model": "JobReplay",
+      "status": "complete",
+      "exit_code": 0,
+      "specification_sha256": "d4677f06a553704efd34cfd2151275354fe0857f0fd4c2953df2d3ca7540036b",
+      "configuration_sha256": "5b7db863aadccba4824dafc234abe18b8c3ebf8126166822886ba0eeb1c137b5",
+      "configuration": "SPECIFICATION Spec\nCONSTANTS\nJobs = {j1}\nArguments = {d1,d2}\nAttempts = {a1,a2}\nUnsafe = FALSE\nINVARIANTS TypeOK ReplayIsConsistent AcceptanceIsDurable TerminalIsDurable\n",
+      "runtime_seconds": 1.3440602490009042,
+      "generated_states": 1481,
+      "distinct_states": 194,
+      "command": [
+        "java",
+        "-Xmx1g",
+        "-cp",
+        "<repository>/spec/tools/tla2tools-1.7.4.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-seed",
+        "1",
+        "-fp",
+        "0",
+        "-metadir",
+        "<repository>/spec/results/looper_154ffcf42f6680263b1f-a5c6fjio/JobReplay",
+        "-config",
+        "<repository>/spec/config/JobReplay-pr.cfg",
+        "<repository>/spec/JobReplay.tla"
+      ],
+      "log": "spec/evidence/pr-JobReplay.log"
+    }
+  ]
+}

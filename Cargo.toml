@@ -1,0 +1,28 @@
+[workspace]
+resolver = "3"
+members = [
+    "crates/domain",
+    "crates/application",
+    "crates/adapters",
+    "crates/interfaces",
+    "crates/gitpickle",
+    "xtask",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.89"
+publish = false
+
+[workspace.dependencies]
+gitpickle-domain = { path = "crates/domain", version = "=0.1.0" }
+gitpickle-application = { path = "crates/application", version = "=0.1.0" }
+gitpickle-adapters = { path = "crates/adapters", version = "=0.1.0" }
+gitpickle-interfaces = { path = "crates/interfaces", version = "=0.1.0" }
+
+[workspace.lints.rust]
+unsafe_code = "forbid"
+
+[workspace.lints.clippy]
+all = "warn"

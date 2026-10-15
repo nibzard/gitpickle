@@ -1,0 +1,72 @@
+# Build output and local development resources.
+/target/
+/.cache/
+**/*.rs.bk
+/fixtures/generated/
+/perf/results/
+/spec/tools/
+/spec/states/
+/spec/results/
+# Generated contract reports; source transcripts remain tracked.
+/tests/results/
+# Python benchmark caches and static evidence.
+**/__pycache__/
+# Storage conformance evidence (never archive source data).
+/tests/results/storage/
+# Generated adapter wire reports and local transport traces.
+/tests/results/storage-wire/
+# TLC diagnostic output; retained regression traces use spec/regressions/.
+/spec/*.out
+/spec/*_TTrace_*
+# Archive prototype staging and comparison output.
+/fixtures/generated/archive*/
+/perf/results/archive-*.json
+# Local archive coordination and interrupted publication staging.
+/fixtures/generated/**/.writer.lock
+/fixtures/generated/**/.staging-*
+
+# Rebuildable archive capture projections.
+/fixtures/generated/**/.projection/
+
+# Rebuildable job scheduling databases inside generated test archives.
+/fixtures/generated/**/.projection/jobs.sqlite3*
+
+# Default recovery destinations and interrupted clean staging.
+/*-restored-*/
+/*-restore-*/
+/*-bundle-*/
+
+# GitHub discovery acceptance archives and interrupted mirror staging.
+/fixtures/generated/github/
+/fixtures/generated/**/.projection/github-staging/
+
+# Generated LFS/wiki acceptance archives and native LFS staging.
+/fixtures/generated/components/
+
+# Authorized-plan acceptance archives, audit records, and restore destinations.
+/fixtures/generated/plans/
+
+# Status and sampled recovery acceptance archives.
+/fixtures/generated/status/
+
+# Private management state, security fixtures, and generated attack reports.
+/.gitpickle-state/
+/fixtures/generated/security/
+/tests/results/security/
+
+# Guided workflow fixtures, private setup state, and provider cache tests.
+/fixtures/generated/workflow/
+/recovered/
+
+# Exported recovery cards and local compatibility reports.
+/recovery-card*.json
+/tests/results/compatibility/
+
+# Machine inventory and isolated development preflight reports.
+/tests/results/dev-env/
+
+# Local MCP profiles, configuration previews, and acceptance output.
+/.gitpickle-profiles.json
+/mcp-config-preview*.json
+/fixtures/generated/mcp/
+/tests/results/mcp/

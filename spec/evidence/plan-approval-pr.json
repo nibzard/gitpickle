@@ -1,0 +1,41 @@
+{
+  "schema_version": 1,
+  "suite": "pr",
+  "tlc_release": "1.7.4",
+  "tlc_version": "2.19 of 08 August 2024",
+  "jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "java": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment (build 21.0.12.1+1-1-24.04.4-Ubuntu)\nOpenJDK 64-Bit Server VM (build 21.0.12.1+1-1-24.04.4-Ubuntu, mixed mode, sharing)\n",
+  "assumptions_sha256": "b2dd87ebd661ad39a6317cee84ec7e59afddcc18e7db0aa3ea95b615721babc6",
+  "runs": [
+    {
+      "model": "PlanApproval",
+      "status": "complete",
+      "exit_code": 0,
+      "specification_sha256": "0567ebf8b6fd3656db9493666fc00ae897bd88735d781d11491b20255d34261a",
+      "configuration_sha256": "2f7b30fb3cecc53ec5fdc5d1c0eb4cb10bd5c907355a36b3105a3fd232580034",
+      "configuration": "SPECIFICATION Spec\nCONSTANT Unsafe = FALSE\nINVARIANTS TypeOK ApprovalMatchesExecution SingleUse\n",
+      "runtime_seconds": 2.4108787769946503,
+      "generated_states": 389129,
+      "distinct_states": 30720,
+      "command": [
+        "java",
+        "-Xmx1g",
+        "-cp",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-a208bbcb0cf57cb1/spec/tools/tla2tools-1.7.4.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-seed",
+        "1",
+        "-fp",
+        "0",
+        "-metadir",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-a208bbcb0cf57cb1/spec/results/looper_c1343455733ca5ec1649-c6528c4j/PlanApproval",
+        "-config",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-a208bbcb0cf57cb1/spec/config/PlanApproval-pr.cfg",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-a208bbcb0cf57cb1/spec/PlanApproval.tla"
+      ],
+      "log": "spec/evidence/plan-approval-pr.log"
+    }
+  ]
+}
