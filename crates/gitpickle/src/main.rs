@@ -18,10 +18,34 @@ fn main() -> ExitCode {
     } else if args.len() == 1 && args[0] == "--version" {
         println!("gitpickle {}", env!("CARGO_PKG_VERSION"));
         ExitCode::SUCCESS
+    } else if args[0] == "__git-http" {
+        match gitpickle_adapters::git_engine::http_bridge(args[1..].to_vec()) {
+            Ok(()) => ExitCode::SUCCESS,
+            Err(error) => {
+                eprintln!("{error}");
+                ExitCode::from(5)
+            }
+        }
     } else if args[0] == "__archive-store" {
         match gitpickle_adapters::archive_store::run(args[1..].to_vec()) {
             Ok(code) => ExitCode::from(code),
             Err(_) => ExitCode::from(5),
+        }
+    } else if args[0] == "setup" {
+        match gitpickle_adapters::daemon::setup(args[1..].to_vec()) {
+            Ok(code) => ExitCode::from(code),
+            Err(error) => {
+                eprintln!("{error}");
+                ExitCode::from(5)
+            }
+        }
+    } else if args[0] == "tui" {
+        match gitpickle_adapters::daemon::tui(args[1..].to_vec()) {
+            Ok(code) => ExitCode::from(code),
+            Err(error) => {
+                eprintln!("{error}");
+                ExitCode::from(5)
+            }
         }
     } else if args[0] == "mcp" {
         match gitpickle_adapters::daemon::mcp(args[1..].to_vec()) {
@@ -41,7 +65,9 @@ fn main() -> ExitCode {
         }
     } else if matches!(
         args[0].to_str(),
-        Some("protect" | "backup" | "sync" | "jobs")
+        Some(
+            "protect" | "backup" | "sync" | "jobs" | "hosting" | "portfolio" | "points" | "history"
+        )
     ) || args[0] == "restore"
         && !args.iter().any(|a| a == "--from-storage" || a == "--help")
         || matches!(args[0].to_str(), Some("status" | "doctor"))

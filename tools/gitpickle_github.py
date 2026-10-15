@@ -332,6 +332,9 @@ class Protection:
             selected = sorted(i for i, r in self.state['repositories'].items() if r['protected']) if all_protected else [str(i) for i in identities]
             if not selected or any(i not in self.state['repositories'] or not self.state['repositories'][i]['protected'] for i in selected):
                 raise JobError('invalid_scope')
+            from gitpickle_hosted import state
+            if any(state(self.root, 'github-' + i)[1]['mode'] == 'hosted' for i in selected):
+                raise JobError('source_updates_paused')
             return [self.jobs.accept('protection', 'backup', key + ':' + i, 'github-' + i,
                     'github', {'github_id': int(i)}, staging_bytes=staging_bytes) for i in selected]
 
@@ -350,7 +353,10 @@ class Protection:
             if self.state['error']:
                 return []
             value, accepted = copy.deepcopy(self.state), []
+            from gitpickle_hosted import state
             for i, repo in value['repositories'].items():
+                if state(self.root, 'github-' + i)[1]['mode'] == 'hosted':
+                    continue
                 if repo['protected'] and repo['available'] and repo['capture_due'] <= now:
                     due = repo['capture_due']
                     accepted.append(self.jobs.accept('protection', 'backup',

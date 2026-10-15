@@ -37,7 +37,10 @@ class CloudArchive:
 
     def __enter__(self):
         capabilities = json.loads(self.command('capabilities'))
-        if not capabilities['conditional_create'] or not capabilities['completed_write_visibility']:
+        publication = capabilities.get('archive_publication')
+        supported = capabilities['conditional_create'] or (
+            self.location['provider'] == 'b2' and publication == 'content-addressed-v1')
+        if not supported or not capabilities['completed_write_visibility']:
             raise JobError('unsupported_capability')
         self.capabilities = capabilities
         # Download before acquiring writer authority. Existing local immutable

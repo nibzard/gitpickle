@@ -1,10 +1,12 @@
 """Archive v1 reference prototype. No daemon state or provider SDK is required."""
 import argparse
+from contextlib import contextmanager
 import hashlib
 import json
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
 import tempfile
 import uuid
@@ -143,6 +145,26 @@ def observe_and_verify(root, repo_id, point, operation_id=None, observed_at=None
            'method': 'archive_readback', 'components': result['verified_components'], 'passed': True,
            'reader_version': 1, 'details': 'Archive-only reconstruction and full Git integrity check'})
     boundary('after_evidence')
+
+
+@contextmanager
+def verified_file(root, key, size):
+    """Pin a checksum-verified snapshot with bounded memory before use."""
+    if type(size) is not int or size < 0:
+        raise ValueError('invalid object size')
+    with security.archive_path(root, key).open('rb') as source, tempfile.TemporaryFile() as output:
+        checksum = hashlib.sha256()
+        count = 0
+        while chunk := source.read(64 * 1024):
+            count += len(chunk)
+            if count > size:
+                raise ValueError('object size mismatch')
+            checksum.update(chunk)
+            output.write(chunk)
+        if count != size or checksum.hexdigest() != key.split('/')[-1]:
+            raise ValueError('object digest or size mismatch')
+        output.seek(0)
+        yield output
 
 
 def read(root, key, kind=None):
@@ -350,12 +372,28 @@ def _publish(root, repo, repo_id, source, lfs=None, writer=None, operation_id=No
         known = set(previous['objects'])
     new = sorted(objects - known)
     if new:
-        payload = git(repo, 'pack-objects', '--stdout', '--window=0', data=('\n'.join(new)+'\n').encode())
-        key = prefix + '/packs/' + digest(payload)
-        boundary('before_payload')
-        durable_put(root, key, payload)
-        boundary('after_payload')
-        packs = packs + [{'key': key, 'size': len(payload)}]
+        # Write native packs to disk. Sending pack bytes through captured stdout
+        # imposed the diagnostic stream's 64 MiB limit on initial captures.
+        # Git splits at object boundaries; an individual large object can exceed
+        # the target. Every resulting pack remains non-thin and independently
+        # indexable. The manifest still names the complete dependency set.
+        with tempfile.TemporaryDirectory(dir=root, prefix='.staging-packs-') as folder:
+            hashes = git(repo, 'pack-objects', '--window=0', '--max-pack-size=32m',
+                         str(Path(folder) / 'pack'), data=('\n'.join(new)+'\n').encode()).decode().split()
+            if not hashes:
+                raise ValueError('missing generated packs')
+            for native_hash in hashes:
+                if not re.fullmatch('[0-9a-f]{40}|[0-9a-f]{64}', native_hash):
+                    raise ValueError('invalid generated pack identity')
+                path = Path(folder) / ('pack-' + native_hash + '.pack')
+                if path.stat().st_size > 5 * 1024 * 1024 * 1024:
+                    raise ValueError('pack exceeds conditional single-write limit')
+                payload = path.read_bytes()
+                key = prefix + '/packs/' + digest(payload)
+                boundary('before_payload')
+                durable_put(root, key, payload)
+                boundary('after_payload')
+                packs = packs + [{'key': key, 'size': len(payload)}]
     required = {}
     missing_lfs = []
     for oid_lfs, size in required_lfs(repo, objects).items():
@@ -438,24 +476,24 @@ def _restore_staged(root, point_key, destination, allow_incomplete=False):
     missing = []
     # Missing LFS can be recovered explicitly as partial data. Corruption always fails.
     for obj in p['packs']:
-        if type(obj['size']) is not int or obj['size'] < 0 or len(read(root, obj['key'])) != obj['size']:
-            raise ValueError('object size mismatch')
+        with verified_file(root, obj['key'], obj['size']):
+            pass
     for oid, obj in p['lfs'].items():
         if not re.fullmatch('[0-9a-f]{64}', oid) or obj['key'].split('/')[-1] != oid:
             raise ValueError('LFS identity mismatch')
         try:
-            payload = read(root, obj['key'])
+            with verified_file(root, obj['key'], obj['size']):
+                pass
         except FileNotFoundError:
             if not allow_incomplete:
                 raise
             missing.append(oid)
             continue
-        if type(obj['size']) is not int or obj['size'] < 0 or len(payload) != obj['size']:
-            raise ValueError('object size mismatch')
     destination.mkdir(parents=True, mode=0o700)
     git(destination, 'init', '--bare', '--template=', '--object-format='+p['hash_algorithm'])
     for pack in p['packs']:
-        git(destination, 'index-pack', '--stdin', data=read(root, pack['key']))
+        with verified_file(root, pack['key'], pack['size']) as source:
+            git(destination, 'index-pack', '--stdin', data=source)
     width = 40 if p['hash_algorithm'] == 'sha1' else 64
     for ref, oid in p['refs'].items():
         git(destination, 'check-ref-format', ref)
@@ -507,7 +545,10 @@ def _restore_staged(root, point_key, destination, allow_incomplete=False):
             continue
         if oid != obj['key'].split('/')[-1]:
             raise ValueError('LFS identity mismatch')
-        put(destination, f'lfs/objects/{oid[:2]}/{oid[2:4]}/{oid}', read(root, obj['key']))
+        target = destination / f'lfs/objects/{oid[:2]}/{oid[2:4]}/{oid}'
+        target.parent.mkdir(parents=True, exist_ok=True)
+        with verified_file(root, obj['key'], obj['size']) as source, target.open('xb') as output:
+            shutil.copyfileobj(source, output, 64 * 1024)
     verified = ['git']
     if not missing and coverage.get('lfs') == 'complete':
         verified.append('lfs')

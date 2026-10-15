@@ -14,6 +14,7 @@ import signal
 import sys
 
 import gitpickle_security as security
+import gitpickle_hosting as hosting
 from gitpickle_plans import Grant, Plans, PlanError, Policy, PolicyStore, Principal
 import gitpickle_status as status
 from gitpickle_github import GitHub
@@ -26,7 +27,8 @@ from gitpickle_agent import AgentTools, SCHEMAS
 
 class Management:
     """Trusted composition supplies identity. Client fields cannot select an actor."""
-    def __init__(self, plans, tokens, workflow=None):
+    def __init__(self, plans, tokens, workflow=None, git_hosting=None):
+        self.hosting = git_hosting
         self.plans = plans
         self.workflow = workflow
         self.tokens = []
@@ -46,12 +48,24 @@ class Management:
         raise PlanError('authentication')
 
     def call(self, principal, operation, arguments):
+        if operation == 'hosting_change':
+            if self.hosting is None or not isinstance(arguments, dict) or set(arguments) != {'repository', 'action', 'expected_head'}:
+                raise PlanError('invalid_input')
+            return hosting.hosted.change(self.hosting, principal, **arguments)
+        if operation == 'hosting_status':
+            if not isinstance(arguments, dict) or set(arguments) != {'repository'}:
+                raise PlanError('invalid_input')
+            if self.hosting is None:
+                with self.plans.policies.lock:
+                    self.plans._require(principal, 'status', [arguments['repository']], self.plans.policies.current)
+                return dict(enabled=False, mode='disabled', remote_url=None)
+            return dict(enabled=True, **self.hosting.describe(principal, arguments['repository']))
         if operation.startswith('agent_'):
             return AgentTools(self.plans, self.workflow).call(principal, operation[6:], arguments)
         if self.workflow is not None and operation in {
                 'workflow_inventory', 'protect_preview', 'protect_resume', 'protect_apply',
                 'capture_preview', 'capture_accept', 'capture_get', 'workflow_status', 'workflow_doctor',
-                'workflow_resolve', 'restore_inventory'}:
+                'workflow_resolve', 'restore_inventory', 'repository_jobs', 'portfolio'}:
             return self.workflow.call(principal, operation, arguments)
         # Exact schemas reject actor spoofing, approval booleans, and unused URLs.
         fields = {
@@ -60,6 +74,8 @@ class Management:
             'approve_plan': {'reference', 'digest'},
             'plan_apply': {'plan', 'approval'},
             'job_get': {'job'}, 'job_execute': {'job'}}
+        if operation == 'restore_plan' and isinstance(arguments, dict) and 'point' in arguments:
+            fields['restore_plan'] = fields['restore_plan'] | {'point'}
         if operation not in fields or not isinstance(arguments, dict) or set(arguments) != fields[operation]:
             raise PlanError('invalid_input')
         if operation == 'status':
@@ -93,10 +109,10 @@ class Management:
 def hello(workflow_enabled):
     return dict(software_version=os.environ.get('GITPICKLE_SOFTWARE_VERSION', 'development'),
                 management=dict(minimum=1, maximum=1), machine_result=dict(minimum=1, maximum=1),
-                capabilities=['agent_' + name for name in SCHEMAS] + ['status', 'restore_plan', 'approve_plan', 'plan_apply', 'job_get', 'job_execute'] +
+                capabilities=['hosting_status', 'hosting_change'] + ['agent_' + name for name in SCHEMAS] + ['status', 'restore_plan', 'approve_plan', 'plan_apply', 'job_get', 'job_execute'] +
                         (['workflow_inventory', 'protect_preview', 'protect_resume', 'protect_apply',
                           'capture_preview', 'capture_accept', 'capture_get', 'workflow_status',
-                          'workflow_doctor', 'workflow_resolve', 'restore_inventory']
+                          'workflow_doctor', 'workflow_resolve', 'restore_inventory', 'repository_jobs', 'portfolio']
                          if workflow_enabled else []))
 
 
@@ -124,7 +140,21 @@ class Handler(BaseHTTPRequestHandler):
     def send_error(self, code, message=None, explain=None):
         self.reply(code, {'error': 'invalid_request'})
 
+    def do_GET(self):
+        if self.path in ('/livez', '/readyz'):
+            stopping = getattr(self.server, 'stopping', None)
+            ready = stopping is None or not stopping.is_set()
+            self.reply(200 if ready else 503, {'status': 'ready' if ready else 'stopping'})
+            return
+        hosting.handle(self)
+
+    def do_PUT(self):
+        hosting.handle(self)
+
     def do_POST(self):
+        if self.path.startswith('/git/'):
+            hosting.handle(self)
+            return
         try:
             if len(self.headers.get_all('Authorization', [])) != 1:
                 raise PlanError('authentication')
@@ -158,8 +188,9 @@ class Handler(BaseHTTPRequestHandler):
             self.reply(400, {'error': 'request_failed'})
 
 
-def server(application, host='127.0.0.1', port=0):
-    if not ipaddress.ip_address(host).is_loopback or ':' in host:
+def server(application, host='127.0.0.1', port=0, *, container_network=False):
+    if (not ipaddress.ip_address(host).is_loopback and not
+            (container_network and host == '0.0.0.0')) or ':' in host:
         raise ValueError('management requires an IPv4 loopback address')
     listener = HTTPServer((host, port), Handler)
     listener.application = application
@@ -172,11 +203,18 @@ def main(argv=None):
     parser.add_argument('--policy', required=True, help='Private nonsecret policy file')
     parser.add_argument('--host', default='127.0.0.1')
     parser.add_argument('--port', type=int, default=0)
+    parser.add_argument('--container-network', action='store_true',
+                        help='Allow 0.0.0.0 inside an isolated container; publish only on host loopback')
+    parser.add_argument('--enable-git', action='store_true', help='Explicitly enable Git hosting; mirrors remain read-only')
+    parser.add_argument('--git-base-url', help='Canonical HTTPS URL: https://HOST/git')
     parser.add_argument('--staging-bytes', type=int, help='Enable protection with this per-job disk budget')
     args = parser.parse_args(argv)
+    phase = 'private_paths'
     try:
         if os.geteuid() == 0:
             raise ValueError('daemon requires an unprivileged user')
+        if bool(args.git_base_url) != args.enable_git:
+            raise ValueError('enable Git explicitly with its canonical HTTPS URL')
         os.umask(0o077)
         root = security.private_directory(args.state)
         policy_path = Path(args.policy)
@@ -192,14 +230,18 @@ def main(argv=None):
         grants = tuple(Grant(g['actor'], g['permission'], frozenset(g['repositories']),
                              g['expires_at']) for g in config['grants'])
         policies = PolicyStore(Policy(config['revision'], grants, frozenset(config['approvers']), str(sandbox)))
+        phase = 'runtime_credentials'
         tokens = json.loads(os.environ.pop('GITPICKLE_MANAGEMENT_TOKENS'))
         with ExitStack() as stack:
+            phase = 'archive_reconstruction'
             cloud = None
             if os.environ.get('GITPICKLE_STORAGE_CONFIG'):
                 cloud = stack.enter_context(CloudArchive(root, os.environ['GITPICKLE_EXECUTABLE']))
             elif not (root / 'archive.json').exists():
                 archive.initialize(root, uuid.uuid4().hex)
             plans = stack.enter_context(Plans(root, policies))
+            phase = 'application_services'
+            git_hosting = hosting.Hosting(plans, args.git_base_url) if args.enable_git else None
             workflow = None
             if args.staging_bytes is not None:
                 if args.staging_bytes <= 0:
@@ -224,19 +266,29 @@ def main(argv=None):
                     stopping.set()
                     scheduler.join()
                 stack.callback(stop_scheduler)
-            with server(Management(plans, tokens, workflow), args.host, args.port) as listener:
-                # A signal handler raises outside request processing; context managers
-                # release the listener and archive ownership on graceful shutdown.
+            phase = 'listener'
+            with server(Management(plans, tokens, workflow, git_hosting), args.host, args.port,
+                        container_network=args.container_network) as listener:
+                # Finish the current request, stop admission, then drain workers.
+                # Do not interrupt an archive publication in a signal handler.
+                draining = threading.Event()
+                listener.stopping = draining
+                listener.timeout = 0.25
                 def stop(*_):
-                    raise KeyboardInterrupt
+                    draining.set()
                 signal.signal(signal.SIGTERM, stop)
+                signal.signal(signal.SIGINT, stop)
                 print(json.dumps({'listen': list(listener.server_address)}), flush=True)
-                listener.serve_forever()
+                while not draining.is_set():
+                    listener.handle_request()
+                print(json.dumps({'event': 'draining'}), file=sys.stderr, flush=True)
+        print(json.dumps({'event': 'stopped'}), file=sys.stderr, flush=True)
         return 0
     except KeyboardInterrupt:
         return 0
     except Exception:
-        print('configuration: Cannot start management service. Check private paths, policy, and runtime credentials.', file=sys.stderr)
+        print('configuration: Cannot start management service. Check private paths, policy, and runtime credentials. Phase: ' + phase,
+              file=sys.stderr)
         return 2
 
 

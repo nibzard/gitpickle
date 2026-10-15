@@ -112,3 +112,24 @@ The normal Python acceptance suite checks binding changes, grant revocation, exp
 The `pr`, `nightly`, and `regression` model suites include `PlanApproval.tla`.
 
 See [the CLI workflow](cli-workflow.md) for guided commands, runtime credentials, provider configuration, and acceptance coverage.
+
+## Git engine adoption probe
+
+The native Git adapter needs no walgit checkout. Run its tests through `cargo xtask check`.
+The optional linked candidate probe requires the clean fork at `~/walgit` and Rust 1.97.1.
+See [the engine decision](adr/0002-git-engine.md) for setup, fixed fixtures, results, and provider limits.
+Generated builds use `.cache/`; fixtures use `fixtures/generated/engine-spike/`.
+Raw comparison reports use `tests/results/git-engine/`. These paths are ignored.
+
+## Git HTTPS acceptance
+
+`cargo xtask check` includes the real-client suite in `tools/test_gitpickle_hosting.py`.
+It requires OpenSSL for disposable local certificates and exercises the installed executable.
+See [read-only Git hosting](git-hosting.md) for the compatibility matrix and current limits.
+Generated HTTPS fixtures remain in ignored `fixtures/generated/hosting/`.
+
+See [validation gates](validation-gates.md) for local and CI acceptance,
+paired baseline runs, noise characterization, waivers, and pending final gates.
+
+The safety and regression model suites also include `GitPublish.tla`.
+See [durable Git publication](git-publication.md) for the response gate and process-exit tests.

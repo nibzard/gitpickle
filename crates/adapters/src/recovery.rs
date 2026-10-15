@@ -1,5 +1,5 @@
 //! Read-only archive recovery through the embedded version 1 reference reader.
-use crate::storage::{digest, providers::*};
+use crate::storage::providers::*;
 use gitpickle_application::storage::*;
 use std::{collections::BTreeSet, ffi::OsString, fs, path::Path, process::Command, time::Duration};
 
@@ -16,6 +16,7 @@ pub fn download_archive(
     }
     let mut cursor = None;
     let mut seen = BTreeSet::new();
+    let mut records = std::collections::BTreeMap::new();
     loop {
         let page = store
             .list(prefix, cursor.as_deref(), 1000)
@@ -25,6 +26,8 @@ pub fn download_archive(
                 .as_str()
                 .strip_prefix(prefix)
                 .ok_or("Object outside archive prefix")?;
+            let (relative, physical_digest) = crate::storage::publication::decode(relative)
+                .map_err(|e| format!("Invalid publication name: {e:?}"))?;
             // Local caches, locks, and interrupted uploads are never recovery inputs.
             if relative != "archive.json"
                 && ![
@@ -44,15 +47,17 @@ pub fn download_archive(
             let object = store
                 .get(&key)
                 .map_err(|e| format!("Archive read failed: {e:?}"))?;
-            if relative != "archive.json" {
-                let actual: String = digest(&object.bytes)
-                    .0
-                    .iter()
-                    .map(|b| format!("{b:02x}"))
-                    .collect();
-                if relative.rsplit('/').next() != Some(actual.as_str()) {
-                    return Err("Archive digest mismatch".into());
-                }
+            let actual = crate::storage::publication::hex_digest(&object.bytes);
+            if physical_digest.is_some_and(|expected| expected != actual) {
+                return Err("Publication digest mismatch".into());
+            }
+            if let Some(previous) = records.insert(relative.to_owned(), actual.clone())
+                && previous != actual
+            {
+                return Err("Conflicting archive records".into());
+            }
+            if relative != "archive.json" && relative.rsplit('/').next() != Some(actual.as_str()) {
+                return Err("Archive digest mismatch".into());
             }
             let path = destination.join(relative);
             fs::create_dir_all(path.parent().ok_or("Invalid archive path")?)
@@ -165,7 +170,10 @@ pub fn run(mut args: Vec<OsString>) -> std::result::Result<u8, String> {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::storage::emulator::{Emulator, Fault, Operation};
+    use crate::storage::{
+        digest,
+        emulator::{Emulator, Fault, Operation},
+    };
 
     #[test]
     fn storage_rebuild_reads_every_page_and_ignores_caches() {

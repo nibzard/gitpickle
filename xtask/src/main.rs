@@ -32,22 +32,55 @@ fn run(cargo: &std::ffi::OsStr, root: &Path, args: &[&str]) -> Result<(), String
     }
 }
 
+fn child_exit(status: std::process::ExitStatus) -> ExitCode {
+    ExitCode::from(
+        status
+            .code()
+            .and_then(|code| u8::try_from(code).ok())
+            .unwrap_or(1),
+    )
+}
+
 fn main() -> ExitCode {
     let args: Vec<_> = std::env::args_os().skip(1).collect();
     let root = Path::new(env!("CARGO_MANIFEST_DIR")).parent().unwrap();
     if args.first().is_some_and(|arg| {
-        ["fixtures", "bench", "perf-report", "model", "dev-env"]
-            .iter()
-            .any(|name| arg == name)
+        [
+            "fixtures",
+            "bench",
+            "perf-report",
+            "model",
+            "dev-env",
+            "validate",
+            "fault-test",
+            "compare-revisions",
+            "calibrate",
+            "gate",
+        ]
+        .iter()
+        .any(|name| arg == name)
     }) {
         return match Command::new("python3")
-            .arg(root.join(if args[0] == "dev-env" {
-                "tools/gitpickle_dev_env.py"
-            } else if args[0] == "model" {
-                "tools/gitpickle_model.py"
-            } else {
-                "tools/gitpickle_perf.py"
-            }))
+            .arg(
+                root.join(if args[0] == "dev-env" {
+                    "tools/gitpickle_dev_env.py"
+                } else if args[0] == "model" {
+                    "tools/gitpickle_model.py"
+                } else if [
+                    "validate",
+                    "fault-test",
+                    "compare-revisions",
+                    "calibrate",
+                    "gate",
+                ]
+                .iter()
+                .any(|name| args[0] == *name)
+                {
+                    "tools/gitpickle_gates.py"
+                } else {
+                    "tools/gitpickle_perf.py"
+                }),
+            )
             .args(if args[0] == "model" || args[0] == "dev-env" {
                 &args[1..]
             } else {
@@ -57,8 +90,7 @@ fn main() -> ExitCode {
             .current_dir(root)
             .status()
         {
-            Ok(status) if status.success() => ExitCode::SUCCESS,
-            Ok(_) => ExitCode::FAILURE,
+            Ok(status) => child_exit(status),
             Err(error) => {
                 eprintln!("Cannot run benchmark harness: {error}");
                 ExitCode::FAILURE
@@ -66,7 +98,9 @@ fn main() -> ExitCode {
         };
     }
     if args.len() != 1 || args[0] != "check" {
-        eprintln!("Usage: cargo xtask check|fixtures|bench|perf-report|model|dev-env [options]");
+        eprintln!(
+            "Usage: cargo xtask check|fixtures|bench|perf-report|model|dev-env|validate|fault-test|compare-revisions|calibrate|gate [options]"
+        );
         return ExitCode::from(2);
     }
     let cargo = std::env::var_os("CARGO").unwrap_or_else(|| "cargo".into());
@@ -99,6 +133,15 @@ fn main() -> ExitCode {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn pending_child_remains_pending() {
+        let status = Command::new("python3")
+            .args(["-c", "raise SystemExit(2)"])
+            .status()
+            .unwrap();
+        assert_eq!(child_exit(status), ExitCode::from(2));
+    }
 
     #[test]
     fn failed_child_is_an_error() {

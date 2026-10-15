@@ -1,0 +1,98 @@
+{
+  "schema_version": 1,
+  "task": "T008",
+  "decision": "native-git-with-standard-git-http",
+  "writable_hosting_enabled": false,
+  "walgit_revision": "3e772010b715555522156a2de1a315ef925526c1",
+  "walgit_branch": "feat/compare-endpoint",
+  "walgit_lock_sha256": "0a867d39ec69f4df26a4f1779741fa2f336ab4a5a1453ea4bb6a496bb47fb189",
+  "git_version": "git version 2.47.1",
+  "fixture_version": 1,
+  "fixed_source_count": 9,
+  "portfolio_repositories": 404,
+  "portfolio_fixture": "400 small namespaces plus four larger namespaces; fixed source reuse",
+  "checks": [
+    "private HTTP credentials",
+    "SHA-1/SHA-256",
+    "protocol v0/v2",
+    "atomic rejection",
+    "partial multi-ref results",
+    "force-with-lease",
+    "branch/tag deletion",
+    "historical snapshot restore",
+    "acknowledged push after cache loss",
+    "lost manifest reply reconciliation",
+    "storage failure cannot acknowledge a push",
+    "LFS basic upload/download"
+  ],
+  "clone_samples": 108,
+  "portfolio_samples": [
+    {
+      "engine": "stock-git-http",
+      "repositories": 404,
+      "capture_and_inventory_ns": 16459460150,
+      "correct": true
+    },
+    {
+      "engine": "walgit",
+      "repositories": 404,
+      "capture_and_inventory_ns": 29755958074,
+      "correct": true
+    }
+  ],
+  "clone_medians_ms": {
+    "stock-git-http": 26.0691725,
+    "walgit": 60.495229
+  },
+  "walgit_wal_tests": {
+    "passed": 37,
+    "failed": 0
+  },
+  "dependency_inventory": {
+    "workspace_packages": 588,
+    "undeclared_license_expressions": 0,
+    "inventory_sha256": "20c29e0263dfe717d7041ab23c4a386c779f5511bf75f63a03ff543b16fa318a"
+  },
+  "provider_gate": "R2 conditional multipart unverified; B2 conditional creation unavailable",
+  "r2": {
+    "result": "/home/agent/.looper/gitpickle-c39a4efa/runtime/task-4caefae3c6c8d8b4/work-00-session-7e971ad263cd6528/t007-5343858b203a4486a2bda2f6-result.json",
+    "journal_sha256": "ee84b1792773e4884d5def51ac31a004975069dca8167d0beafd7659bbc64acd",
+    "cleanup": "repeated cleanup passes; prefix has no objects or unfinished uploads",
+    "source_unchanged": true
+  },
+  "raw_artifact_directory": "/home/agent/.looper/gitpickle-c39a4efa/runtime/task-4caefae3c6c8d8b4/work-00-session-7e971ad263cd6528",
+  "raw_comparison_sha256": "844feb6f7941c0aa5fdb9161044c19a39fd2691a2226a1989ca943594420782b",
+  "raw_files": [
+    "git-engine-comparison-final.json",
+    "walgit-license-inventory.json",
+    "walgit-metadata.json",
+    "walgit-probe-build.log",
+    "walgit-wal-tests.log",
+    "t008-r2.log",
+    "git-engine-spike-final.log",
+    "t008-check.log",
+    "t008-rust-final.log",
+    "t008-clippy-final.log",
+    "native-engine-tests.log",
+    "engine-harness-tests-final.log"
+  ],
+  "deferred": [
+    "full-size portfolio performance: T051",
+    "live S3/B2: T054",
+    "writable response coordinator: T035/T036"
+  ],
+  "environment": {
+    "platform": "Linux-6.8.0-147-generic-x86_64-with-glibc2.39",
+    "cpu_count": 8,
+    "probe_profile": "unoptimized development build",
+    "provider_latency": "none; emulated storage",
+    "timing_scope": "local observations; no release performance gate"
+  },
+  "source_unchanged": true,
+  "local_validation": {
+    "workspace_check": "passes; includes 181 Python tests",
+    "final_rust_workspace_tests": "pass",
+    "final_clippy": "pass",
+    "format_and_diff_checks": "pass"
+  }
+}

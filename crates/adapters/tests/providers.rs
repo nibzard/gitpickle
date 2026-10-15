@@ -577,6 +577,9 @@ fn adapters_use_the_shared_conformance_harness_without_claiming_missing_capabili
         S3::with_transport(config("us-east-1"), credentials(), Wire::default(), clock).unwrap();
     assert!(run(&mut s3, &scope).unwrap().unsupported.is_empty());
     let mut r2 = R2::with_transport(config("auto"), credentials(), Wire::default(), clock).unwrap();
+    probe_unconditional_multipart(&mut r2, &scope).unwrap();
+    // Use a separate emulator instance for the occupied-prefix guard.
+    let mut r2 = R2::with_transport(config("auto"), credentials(), Wire::default(), clock).unwrap();
     assert_eq!(
         run(&mut r2, &scope).unwrap().unsupported,
         vec!["conditional multipart creation"]
@@ -584,6 +587,7 @@ fn adapters_use_the_shared_conformance_harness_without_claiming_missing_capabili
     let mut b2 =
         B2::with_transport(config("us-west-004"), credentials(), Wire::default(), clock).unwrap();
     assert_eq!(run(&mut b2, &scope), Err(StorageError::Unsupported));
+    probe_unconditional_multipart(&mut b2, &scope).unwrap();
 }
 
 #[test]
@@ -715,4 +719,35 @@ fn r2_and_b2_support_unconditional_multipart_without_claiming_conditional_safety
     };
     exercise(&mut R2::with_transport(config("auto"), credentials(), mock(), clock).unwrap());
     exercise(&mut B2::with_transport(config("us-west-004"), credentials(), mock(), clock).unwrap());
+}
+
+#[test]
+fn b2_archive_publication_uses_unconditional_digest_names_and_remote_readback() {
+    use gitpickle_adapters::storage::publication::{NAMESPACE, hex_digest, publish};
+    let mock = Mock::replies(vec![
+        Ok(response(404, "<Error><Code>NoSuchKey</Code></Error>")),
+        Ok(page(&[], None)),
+        Ok(response(404, "<Error><Code>NoSuchKey</Code></Error>")),
+        Err(TransportError::Ambiguous),
+        Ok(object(b"identity", "\"opaque\"")),
+    ]);
+    let mut store =
+        B2::with_transport(config("us-west-004"), credentials(), mock.clone(), clock).unwrap();
+    publish(&mut store, "private/", "archive.json", b"identity").unwrap();
+    assert!(!store.capabilities().conditional_create);
+    mock.inspect(|requests| {
+        assert_eq!(requests.len(), 5);
+        assert_eq!(requests[3].method, Method::PUT);
+        assert!(!requests[3].headers.contains_key("if-none-match"));
+        assert!(!requests[3].headers.contains_key("if-match"));
+        assert_eq!(
+            requests[3].url.path(),
+            format!(
+                "/test-bucket/private/{NAMESPACE}archive.json/{}",
+                hex_digest(b"identity")
+            )
+        );
+        assert_eq!(requests[3].url, requests[4].url);
+        assert_eq!(requests[4].method, Method::GET);
+    });
 }

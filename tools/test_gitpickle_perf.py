@@ -131,13 +131,15 @@ class HarnessTests(unittest.TestCase):
             value['repetitions'] = 30
             value['rows'][0]['raw_samples'] = [dict(copy.deepcopy(sample), elapsed_ms=elapsed) for _ in range(30)]
             value['rows'][0]['metrics'] = perf.summarize([elapsed]*30)
-        self.assertEqual('block', perf.compare(candidate, baseline)[0]['gate'])
+        self.assertEqual('warn', perf.compare(candidate, baseline)[0]['gate'])
+        self.assertTrue(perf.compare(candidate, baseline)[0]['provisional_regression'])
         self.assertEqual('pass', perf.compare(baseline, baseline)[0]['gate'])
         candidate = copy.deepcopy(baseline)
         for value, memory in ((baseline, 10*1024*1024), (candidate, 20*1024*1024)):
             for raw in value['rows'][0]['raw_samples']:
                 raw['process_tree_peak_rss_bytes'] = memory
-        self.assertEqual('block', perf.compare(candidate, baseline)[0]['gate'])
+        self.assertEqual('warn', perf.compare(candidate, baseline)[0]['gate'])
+        self.assertTrue(perf.compare(candidate, baseline)[0]['provisional_regression'])
 
     def test_failed_setup_writes_invalid_result(self):
         args = type('Args', (), dict(repetitions=1, suite='quick', scenarios=None,

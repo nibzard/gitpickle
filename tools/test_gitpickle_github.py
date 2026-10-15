@@ -170,6 +170,29 @@ class GitHubTests(unittest.TestCase):
             if path.is_file():
                 self.assertNotIn(b'private-token', path.read_bytes())
 
+    def test_hosted_mode_pauses_scheduling_and_already_queued_source_jobs(self):
+        from gitpickle_hosted import change, head
+        from gitpickle_hosting import Hosting
+        from gitpickle_plans import Grant, Plans, Policy, PolicyStore, Principal
+        with self.service() as jobs:
+            protection = Protection(jobs, self.github)
+            self.protect(protection, [1])
+            queued = jobs.accept('protection', 'backup', 'queued-before-conversion', 'github-1',
+                                 'github', {'github_id': 1}, staging_bytes=100)
+            policies = PolicyStore(Policy(1, tuple(Grant('owner', permission, frozenset({'github-1'}), 2**62)
+                                   for permission in ('git_read', 'hosting_manage')), frozenset(), str(self.store)))
+            with Plans(self.store, policies, writer=jobs.writer) as plans:
+                hosting = Hosting(plans, 'https://example.invalid/git')
+                principal = Principal('owner')
+                change(hosting, principal, 'github-1', 'create', None)
+                self.assertEqual([], protection.tick(staging_bytes=100))
+                self.drain(jobs, [queued['id']])
+                self.assertEqual('source_updates_paused', jobs.inspect(queued['id'])['error'])
+                with self.assertRaisesRegex(JobError, 'source_updates_paused'):
+                    protection.backup([1], key='manual', staging_bytes=100)
+                change(hosting, principal, 'github-1', 'resume', head(self.store, 'github-1'))
+                self.assertEqual(1, len(protection.tick(staging_bytes=100)))
+
     def test_six_hour_capture_daily_discovery_and_restart_deduplication(self):
         with self.service() as jobs:
             p = Protection(jobs, self.github)

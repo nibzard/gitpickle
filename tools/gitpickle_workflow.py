@@ -33,6 +33,23 @@ def envelope(data=None, repositories=(), archive=None, error=None, jobs=()):
                    retry={'kind': 'never'}) if error else None)
 
 
+def filter_rows(rows, query='', mode='all'):
+    query = query.casefold()
+    return [row for row in rows if query in ' '.join(
+        [row['repository_id'], *row.get('aliases', [])]).casefold()
+        and (mode == 'all' or row['current_and_verified'] == (mode == 'verified'))]
+
+
+def pages(client, operation, arguments):
+    rows, args = [], dict(arguments, limit=50)
+    while True:
+        data = client.call(operation, args)['data']
+        rows.extend(data['items'])
+        if not data['next_cursor']:
+            return rows
+        args['cursor'] = data['next_cursor']
+
+
 class Workflow:
     """Daemon-owned service. All writes require a human principal and scoped grants."""
     def __init__(self, plans, jobs, github, staging_bytes, *, cloud=None):
@@ -129,7 +146,7 @@ class Workflow:
             'protect_resume': {'reference'}, 'protect_apply': {'reference', 'digest'},
             'capture_preview': {'repository', 'all', 'operation', 'key'},
             'capture_accept': {'reference', 'digest'},
-            'capture_get': {'job'},
+            'capture_get': {'job'}, 'repository_jobs': {'repository'}, 'portfolio': set(),
             'workflow_status': {'repository', 'all'},
             'workflow_doctor': {'repository', 'all'}, 'restore_inventory': set(),
         }
@@ -138,6 +155,19 @@ class Workflow:
         with self.lock, self.plans.policies.lock:
             if principal.agent:
                 raise PlanError('forbidden')
+            if operation == 'portfolio':
+                self.protection.reload()
+                granted = {repo for g in self.plans.policies.current.grants
+                    if g.actor == principal.actor and g.permission == 'status'
+                    and self.plans.clock() < g.expires_at for repo in g.repositories}
+                result = status.calculate(self.root)
+                rows = []
+                for row in result['data']['repositories']:
+                    if row['repository_id'] in granted:
+                        self.require(principal, 'status', [row['repository_id']])
+                        registration = self.protection.state['repositories'].get(row['repository_id'].removeprefix('github-'), {})
+                        rows.append(dict(row, aliases=registration.get('aliases', [])))
+                return rows
             if operation == 'restore_inventory':
                 inventory = recovery.storage_inventory(self.root)
                 rows = []
@@ -274,6 +304,28 @@ class Workflow:
                 accepted = [self.jobs.accept(principal.actor, args['operation'], args['key'] + ':' + i,
                     i, 'github', {'github_id': int(i[7:])}, staging_bytes=self.staging_bytes) for i in ids]
                 return dict(repositories=ids, jobs=[self.public_job(j) for j in accepted])
+            if operation == 'repository_jobs':
+                self.require(principal, 'status', [args['repository']])
+                with self.jobs.lock:
+                    rows = [dict(self.public_job(j), kind=j['request']['operation'])
+                        for j in self.jobs.jobs.values() if j['request']['repository'] == args['repository']]
+                for directory in (self.root / 'execution' / 'jobs').glob('*'):
+                    accepted = self.plans._event(directory.name, 'accepted')
+                    if (not accepted or accepted['actor'] != principal.actor
+                            or args['repository'] not in accepted['plan']['repositories']):
+                        continue
+                    try:
+                        state = self.plans.inspect(principal, directory.name)
+                        future = self.restore_futures.get(directory.name)
+                        if state == 'unknown_outcome' and future is not None and not future.done():
+                            state = 'running'
+                    except PlanError as error:
+                        if error.code == 'forbidden':
+                            continue
+                        raise
+                    rows.append(dict(id=directory.name, kind='restore', state=state,
+                                     accepted_at=accepted['accepted_at'], error=None))
+                return sorted(rows, key=lambda row: (row['accepted_at'], row['id']), reverse=True)
             if operation == 'capture_get':
                 job = self.jobs.inspect(args['job'])
                 self.require(principal, 'status', [job['request']['repository']])
@@ -378,10 +430,12 @@ def main(argv=None):
     restore_job = None
     try:
         parser = Parser(description=__doc__)
-        parser.add_argument('command', choices=['protect', 'backup', 'sync', 'jobs', 'status', 'doctor', 'restore'])
+        parser.add_argument('command', choices=['protect', 'backup', 'sync', 'jobs', 'status', 'doctor', 'restore', 'hosting', 'points', 'history', 'portfolio'])
         parser.add_argument('target', nargs='?')
         parser.add_argument('--server', default=os.environ.get('GITPICKLE_SERVER'))
         parser.add_argument('--repository')
+        parser.add_argument('--action', choices=['create', 'convert', 'resume'])
+        parser.add_argument('--expected-head')
         parser.add_argument('--all', action='store_true')
         parser.add_argument('--include-future', action='store_true')
         parser.add_argument('--preview', '--dry-run', action='store_true')
@@ -393,8 +447,23 @@ def main(argv=None):
         parser.add_argument('--check', action='store_true')
         parser.add_argument('--attention', action='store_true')
         parser.add_argument('--destination')
+        parser.add_argument('--point')
+        parser.add_argument('--search', default='')
+        parser.add_argument('--verified', action='store_true')
         parser.add_argument('--restore', action='store_true', help='Inspect a restore job')
         args = parser.parse_args(argv)
+        if (args.action and args.preview) or (args.expected_head and not args.action):
+            raise PlanError('invalid_input')
+        if (args.action or args.expected_head) and args.command != 'hosting':
+            raise PlanError('invalid_input')
+        if args.verified and (args.command != 'portfolio' or args.attention):
+            raise PlanError('invalid_input')
+        if args.command == 'portfolio' and args.repository:
+            raise PlanError('invalid_input')
+        if args.search and args.command != 'portfolio':
+            raise PlanError('invalid_input')
+        if args.point and args.command != 'restore':
+            raise PlanError('invalid_input')
         if args.restore and args.command != 'jobs':
             raise PlanError('invalid_input')
         if args.target is not None and args.command not in ('protect', 'jobs', 'restore'):
@@ -410,9 +479,8 @@ def main(argv=None):
         if args.all and args.command in ('restore', 'jobs'):
             raise PlanError('invalid_input')
         if not args.server and args.command == 'protect' and sys.stdin.isatty() and not args.json:
-            print('Run protection through an existing local daemon. Remote installation uses the deployment guide.', file=sys.stderr)
-            print('Daemon URL (http://127.0.0.1:PORT): ', end='', file=sys.stderr, flush=True)
-            args.server = input().strip()
+            from gitpickle_setup import main as setup
+            return setup(['--configure'])
         if not args.server:
             raise PlanError('configuration')
         token = os.environ.get('GITPICKLE_MANAGEMENT_TOKEN')
@@ -424,7 +492,7 @@ def main(argv=None):
         if args.command == 'protect':
             print('Protection runs on the daemon at ' + args.server + '.', file=sys.stderr)
         repository = args.repository
-        alias = checkout_alias() if not repository and not args.all and not args.resume and args.command not in ('jobs', 'restore') and not (args.command == 'protect' and args.target == 'github') else None
+        alias = checkout_alias() if not repository and not args.all and not args.resume and args.command not in ('jobs', 'restore', 'portfolio') and not (args.command == 'protect' and args.target == 'github') else None
         # Resolve checkout only against authorized inventory. Never change a remote.
         if alias:
             if args.command == 'protect':
@@ -490,6 +558,32 @@ def main(argv=None):
                 data = client.call('capture_accept', dict(reference=preview['reference'], digest=preview['digest']))
                 accepted = data['jobs']
                 result = envelope(data, data['repositories'], jobs=accepted)
+        elif args.command == 'portfolio':
+            data = filter_rows(client.call('portfolio', {}), args.search, 'verified' if args.verified else 'attention' if args.attention else 'all')
+            result = envelope(data, [r['repository_id'] for r in data])
+        elif args.command in ('points', 'history'):
+            if not repository or args.all:
+                raise PlanError('explicit_scope_required')
+            if args.command == 'history':
+                data = client.call('repository_jobs', dict(repository=repository))
+            else:
+                data = pages(client, 'agent_recovery_points_list', dict(repository=repository))
+            result = envelope(data, [repository])
+        elif args.command == 'hosting':
+            if not repository or args.all:
+                raise PlanError('explicit_scope_required')
+            if args.action:
+                if args.action != 'create' and not args.expected_head:
+                    raise PlanError('expected_head_required')
+                client.call('hosting_change', dict(repository=repository, action=args.action, expected_head=args.expected_head))
+            data = client.call('hosting_status', {'repository': repository})
+            result = envelope(data, [repository])
+            if not args.json:
+                print('Scope: ' + repository)
+                print('Mode: ' + data['mode'])
+                print('Head: ' + (data.get('head') or 'none'))
+                print('Remote URL: ' + (data['remote_url'] or 'Hosting is disabled'))
+                return 0
         elif args.command == 'jobs':
             if not args.target:
                 raise PlanError('invalid_input')
@@ -540,7 +634,7 @@ def main(argv=None):
                 args.destination = input().strip() or default
             expires = int(time.time()) + 3600
             planned = client.call('restore_plan', dict(repository=repository,
-                destination=str(Path(args.destination).absolute()), expires_at=expires, maximum_bytes=2**63-1))
+                destination=str(Path(args.destination).absolute()), expires_at=expires, maximum_bytes=2**63-1, **({'point': args.point} if args.point else {})))
             print('Restore plan (UTC):\n' + display(planned), file=sys.stderr)
             if args.preview:
                 result = envelope(planned, [repository])

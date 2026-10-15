@@ -2,8 +2,15 @@
 
 Version 1 uses immutable, non-thin Git packs and complete dependency inventories.
 The reference implementation is `tools/gitpickle_archive.py`.
-The executable embeds this reader for recovery. Capture remains a local reference coordinator.
-The Rust storage adapters provide read-only provider access for recovery.
+The executable embeds this reader for recovery and the capture coordinator.
+`tools/gitpickle_cloud.py` connects capture to the Rust storage adapters.
+R2 and S3 publication require conditional creation and remote readback before local visibility.
+B2 uses the [content-addressed publication mapping](../storage-providers.md#b2-archive-publication).
+Its physical names are `<prefix>.gitpickle-publication/v1/<logical-key>/<sha256-of-exact-bytes>`.
+List that namespace, verify each final digest, and remove the namespace and final digest to recover logical keys.
+Reject conflicting bytes for one logical key, including conflicts with direct-layout objects.
+Verify `archive.json` this way too. No provider version history or local mapping index is required.
+All references below remain logical keys. Conditional-write capabilities remain unavailable for B2.
 The reader needs Python 3, native Git, and archive read access. It needs no Python packages.
 It does not need GitHub, the original repository, SQLite, or the original daemon.
 
@@ -85,6 +92,9 @@ Only successfully checked components receive verification evidence.
 Submodule Git pointers remain Git data. Capture and recovery never fetch their dependent URLs.
 
 Each pack is independently indexable without an external delta base.
+Capture writes native packs to staging files with a 32 MiB target per pack.
+Git can exceed this target for one large object. Each pack must fit the 5 GiB conditional single-write limit.
+This changes pack generation without changing the version 1 reader or manifest fields.
 Packs can contain commits whose parents occur in another listed pack.
 Therefore, validate the complete Git graph after installing every listed pack.
 Do not infer dependencies from a daemon cache, a previous point, or a pack index.
@@ -256,8 +266,9 @@ The archive and writer suites cover empty repositories, detached HEAD, hash algo
 All tests create ignored local resources with the Looper resource prefix.
 The capture tests also exit a subprocess without cleanup at publication boundaries.
 
-This implementation uses local filesystem durability. It does not establish cloud provider durability.
-The Rust storage contract remains the integration boundary for future provider-backed capture.
+Direct local capture uses filesystem durability. Cloud capture uses the Rust storage contract through `CloudArchive`.
+See [R2 conformance](../r2-conformance.md) and [portfolio recovery](../portfolio-recovery.md) for bounded live evidence.
+Live S3/B2 acceptance remains pending; local tests do not establish provider durability.
 The reference coordinator loads packs into memory and does not establish portfolio performance.
 
 Run a small capture benchmark from the repository root:

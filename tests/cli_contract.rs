@@ -439,6 +439,7 @@ fn installed_workflow_detaches_and_publishes_through_provider_ports() {
     let tools = std::path::Path::new(env!("CARGO_MANIFEST_DIR")).join("../../tools");
     let output = Command::new("python3")
         .args(["-B", "-c", r#"
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -508,9 +509,14 @@ class Storage(BaseHTTPRequestHandler):
         key = unquote(urlsplit(self.path).path.removeprefix('/bucket/'))
         requests.append(('PUT', key))
         body = self.rfile.read(int(self.headers['Content-Length']))
-        assert self.headers['If-None-Match'] == '*'
-        if key in objects:
-            return self.send(412)
+        if key.startswith('b2/'):
+            assert self.headers.get('If-None-Match') is None
+            assert key.endswith('/' + hashlib.sha256(body).hexdigest())
+            assert key not in objects or objects[key] == body
+        else:
+            assert self.headers['If-None-Match'] == '*'
+            if key in objects:
+                return self.send(412)
         objects[key] = body
         self.send(200)
     def do_GET(self):
@@ -531,7 +537,7 @@ with ThreadingHTTPServer(('127.0.0.1', 0), Storage) as server:
     try:
         payload = Path('object')
         payload.write_bytes(b'independent archive bytes')
-        for provider in ('r2', 's3'):
+        for provider in ('r2', 's3', 'b2'):
             config = dict(provider=provider, endpoint='http://127.0.0.1:' + str(server.server_port),
                 region='auto' if provider == 'r2' else 'us-east-1', bucket='bucket', prefix=provider + '/')
             env = dict(os.environ, GITPICKLE_STORAGE_CONFIG=json.dumps(config),
@@ -540,8 +546,21 @@ with ThreadingHTTPServer(('127.0.0.1', 0), Storage) as server:
             for _ in range(2):
                 result = subprocess.run(command, env=env, capture_output=True, timeout=15)
                 assert result.returncode == 0, result.stderr
-            assert objects[provider + '/archive.json'] == payload.read_bytes()
-            assert requests.count(('PUT', provider + '/archive.json')) == 1
+            physical = provider + '/archive.json'
+            if provider == 'b2':
+                physical = 'b2/.gitpickle-publication/v1/archive.json/' + hashlib.sha256(payload.read_bytes()).hexdigest()
+            assert objects[physical] == payload.read_bytes()
+            assert requests.count(('PUT', physical)) == 1
+            caps = subprocess.run([binary, '__archive-store', 'capabilities'], env=env,
+                capture_output=True, check=True, timeout=15)
+            capabilities = json.loads(caps.stdout)
+            assert capabilities['conditional_create'] == (provider != 'b2')
+            if provider == 'b2':
+                assert capabilities['archive_publication'] == 'content-addressed-v1'
+            destination = Path('download-' + provider)
+            subprocess.run([binary, '__archive-store', 'download', str(destination)], env=env,
+                capture_output=True, check=True, timeout=15)
+            assert (destination / 'archive.json').read_bytes() == payload.read_bytes()
             payload.write_bytes(b'changed bytes')
             result = subprocess.run(command, env=env, capture_output=True, timeout=15)
             assert result.returncode == 5
@@ -595,4 +614,62 @@ fn installed_binary_generates_card_without_daemon_or_source_checkout() {
     assert!(text.contains("\"required_application_keys\": []"));
     assert_eq!(text.lines().count(), 1);
     assert!(output.stderr.is_empty());
+}
+
+#[test]
+fn installed_binary_guides_private_coolify_without_source_files() {
+    let temporary = tempfile::Builder::new()
+        .prefix(&std::env::var("LOOPER_RESOURCE_PREFIX").unwrap_or_else(|_| "setup-cli".into()))
+        .tempdir()
+        .unwrap();
+    let binary = temporary.path().join("gitpickle");
+    std::fs::copy(env!("CARGO_BIN_EXE_gitpickle"), &binary).unwrap();
+    let image = format!("registry.example/gitpickle@sha256:{}", "a".repeat(64));
+    let run = |resume: bool| {
+        let mut command = Command::new(&binary);
+        command.current_dir(temporary.path()).args([
+            "setup", "--target", "coolify", "--output", "review", "--image", &image, "--port",
+            "32123", "--json",
+        ]);
+        if resume {
+            command.arg("--resume");
+        }
+        command.output().unwrap()
+    };
+    let first = run(false);
+    assert!(
+        first.status.success(),
+        "{}",
+        String::from_utf8_lossy(&first.stderr)
+    );
+    let result = String::from_utf8(first.stdout).unwrap();
+    assert!(result.contains("\"schema_version\": 1"));
+    assert!(result.contains("\"installed\": false"));
+    let recipe = std::fs::read(temporary.path().join("review/compose.yaml")).unwrap();
+    assert!(String::from_utf8_lossy(&recipe).contains("127.0.0.1:32123:8080"));
+    let second = run(true);
+    assert!(second.status.success());
+    assert_eq!(
+        recipe,
+        std::fs::read(temporary.path().join("review/compose.yaml")).unwrap()
+    );
+    assert_eq!(std::fs::read_dir(temporary.path()).unwrap().count(), 2);
+}
+
+#[test]
+fn terminal_interface_is_explicit_and_rejects_automation() {
+    let output = cli(&["tui"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stdout.is_empty());
+    assert!(
+        String::from_utf8(output.stderr)
+            .unwrap()
+            .contains("requires a terminal")
+    );
+    let output = cli(&["tui", "--json"]);
+    assert_eq!(output.status.code(), Some(2));
+    assert!(output.stderr.is_empty());
+    let text = String::from_utf8(output.stdout).unwrap();
+    assert!(text.contains("interactive_only"));
+    assert!(!text.contains('\u{1b}'));
 }

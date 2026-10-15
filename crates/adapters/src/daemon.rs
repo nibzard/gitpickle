@@ -9,8 +9,16 @@ pub fn workflow(args: Vec<OsString>) -> std::result::Result<u8, String> {
     launch(args, "gitpickle_workflow")
 }
 
+pub fn setup(args: Vec<OsString>) -> std::result::Result<u8, String> {
+    launch(args, "gitpickle_setup")
+}
+
 pub fn mcp(args: Vec<OsString>) -> std::result::Result<u8, String> {
     launch(args, "gitpickle_mcp")
+}
+
+pub fn tui(args: Vec<OsString>) -> std::result::Result<u8, String> {
+    launch(args, "gitpickle_tui")
 }
 
 fn launch(args: Vec<OsString>, entry: &str) -> std::result::Result<u8, String> {
@@ -48,6 +56,10 @@ fn launch(args: Vec<OsString>, entry: &str) -> std::result::Result<u8, String> {
             include_str!("../../../tools/gitpickle_github.py"),
         ),
         (
+            "gitpickle_setup",
+            include_str!("../../../tools/gitpickle_setup.py"),
+        ),
+        (
             "gitpickle_workflow",
             include_str!("../../../tools/gitpickle_workflow.py"),
         ),
@@ -62,6 +74,22 @@ fn launch(args: Vec<OsString>, entry: &str) -> std::result::Result<u8, String> {
         (
             "gitpickle_mcp",
             include_str!("../../../tools/gitpickle_mcp.py"),
+        ),
+        (
+            "gitpickle_receive",
+            include_str!("../../../tools/gitpickle_receive.py"),
+        ),
+        (
+            "gitpickle_hosted",
+            include_str!("../../../tools/gitpickle_hosted.py"),
+        ),
+        (
+            "gitpickle_hosting",
+            include_str!("../../../tools/gitpickle_hosting.py"),
+        ),
+        (
+            "gitpickle_tui",
+            include_str!("../../../tools/gitpickle_tui.py"),
         ),
         (
             "gitpickle_daemon",

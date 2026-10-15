@@ -2,7 +2,7 @@
 
 These bounded models specify the protocol before its durable transitions exist.
 They do not prove the Rust implementation or any storage provider correct.
-Retention and writable Git publication remain outside these models.
+Retention remains outside these models. Git publication has a separate model below.
 
 ## Assumptions and bounds
 
@@ -129,3 +129,18 @@ This deliberately sacrifices automatic retry rather than repeating a filesystem 
 It does not prove provider durability, hostile administrator resistance, or clock synchronization.
 The server clock must not roll back across an approval window.
 The model's atomic execute abstracts several fallible writes; fault tests exercise those boundaries separately.
+
+## Durable Git publication
+
+`GitPublish.tla` extends the safety suites with private staging and a final response gate.
+Writable publication is outside `ArchiveCommit.tla`, but is covered by this separate model.
+It checks two serialized generations, two attempts, two refs, and three required objects.
+The nightly configuration uses five objects. No state constraint or fairness hides crashes.
+A result fixes accepted refs, rejected refs, and atomic intent for its generation identity.
+The gate never acknowledges or exposes an unpublished generation.
+Crashes erase staging and reader state; recovery reconstructs visibility from durable publications.
+Retries cannot replace a recorded manifest result. Lost final responses do not erase publication.
+The unsafe regression acknowledges staging and must violate `AcknowledgedPushIsDurable`.
+See [the protocol and action mapping](../docs/git-publication.md) for concrete process-exit tests,
+plain and sideband response handling, assumptions, and the remaining production integration.
+The model specifies safety, not cloud conformance or a refinement proof.

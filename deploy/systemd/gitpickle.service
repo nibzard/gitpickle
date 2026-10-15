@@ -1,0 +1,26 @@
+[Unit]
+Description=GitPickle archive service
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=simple
+ExecStart=/opt/gitpickle/current/gitpickle serve --state %S/gitpickle/archive --policy %h/.config/gitpickle/policy.json --port 8080 --staging-bytes 1073741824
+EnvironmentFile=%h/.config/gitpickle/runtime.env
+StateDirectory=gitpickle
+StateDirectoryMode=0700
+UMask=0077
+Restart=on-failure
+RestartSec=5
+TimeoutStopSec=3900
+KillMode=mixed
+NoNewPrivileges=yes
+PrivateTmp=yes
+ProtectSystem=strict
+ProtectHome=read-only
+ReadWritePaths=%S/gitpickle
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "suite": "pr",
+  "tlc_release": "1.7.4",
+  "tlc_version": "2.19 of 08 August 2024",
+  "jar_sha256": "936a262061c914694dfd669a543be24573c45d5aa0ff20a8b96b23d01e050e88",
+  "java": "openjdk version \"21.0.12.1\" 2026-08-18\nOpenJDK Runtime Environment (build 21.0.12.1+1-1-24.04.4-Ubuntu)\nOpenJDK 64-Bit Server VM (build 21.0.12.1+1-1-24.04.4-Ubuntu, mixed mode, sharing)\n",
+  "assumptions_sha256": "4fafa1c28ea16227304ca10443011f078d266d4d49a4a185e0c65e3c30de1435",
+  "runs": [
+    {
+      "model": "GitPublish",
+      "status": "complete",
+      "exit_code": 0,
+      "specification_sha256": "981e4dfbc0d14c19e75cdf777c413792934fec9832d3abf810b3b95cb24ab020",
+      "configuration_sha256": "cb0ea325263b78b255d545f7b136f101d3f35940e188433bb7d1e5e949c2200d",
+      "configuration": "SPECIFICATION Spec\nCONSTANTS\nObjects = {o1,o2,o3}\nRefs = {main,tag}\nAttempts = {a1,a2}\nLimit = 2\nUnsafe = FALSE\nINVARIANTS TypeOK PublishedClosure AcknowledgedPushIsDurable ReadersSeeOnlyPublished GitResultsArePreserved ReplayIsConsistent\nPROPERTY HistorySurvivesCrash\n",
+      "runtime_seconds": 6.96659081200778,
+      "generated_states": 501041,
+      "distinct_states": 57720,
+      "command": [
+        "java",
+        "-Xmx1g",
+        "-cp",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-903b01c63a05507c/spec/tools/tla2tools-1.7.4.jar",
+        "tlc2.TLC",
+        "-workers",
+        "1",
+        "-seed",
+        "1",
+        "-fp",
+        "0",
+        "-metadir",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-903b01c63a05507c/spec/results/looper_cccbd4821c86a42307b9-54sx0lfn/GitPublish",
+        "-config",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-903b01c63a05507c/spec/config/GitPublish-pr.cfg",
+        "/home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-903b01c63a05507c/spec/GitPublish.tla"
+      ],
+      "log": "spec/results/looper_cccbd4821c86a42307b9-54sx0lfn/GitPublish.log",
+      "retained_log": "spec/evidence/git-publish-pr.log"
+    }
+  ]
+}

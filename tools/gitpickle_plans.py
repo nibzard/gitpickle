@@ -187,17 +187,19 @@ class Plans:
             os.close(fd)
 
     def restore_plan(self, principal, repository, destination, *, expires_at,
-                     maximum_bytes, maximum_repositories=1, visibility='private'):
+                     maximum_bytes, maximum_repositories=1, visibility='private', point=None):
         with self._transaction() as policy:
             try:
                 self._require(principal, 'plan_restore', [repository], policy)
+                if point is not None and (not isinstance(point, str) or len(point) > 4096):
+                    raise PlanError('invalid_input')
                 if (not re.fullmatch('[A-Za-z0-9_-]+', repository)
                         or type(expires_at) is not int or expires_at <= self.clock()
                         or type(maximum_bytes) is not int or maximum_bytes < 0
                         or type(maximum_repositories) is not int or maximum_repositories < 1):
                     raise PlanError('invalid_input')
                 with self._destination(principal, destination, visibility, policy) as (parent, _):
-                    selected = recovery.plan(self.root, repository, destination=destination)
+                    selected = recovery.plan(self.root, repository, point=point, destination=destination)
                     # Return only recovery inputs. Archive source labels can contain
                     # credentials or repository-supplied instructions.
                     preview = {key: selected[key] for key in

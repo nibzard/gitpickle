@@ -1,0 +1,21 @@
+# Use this recipe in standalone Compose or Coolify's Docker Compose service.
+services:
+  gitpickle:
+    image: ${GITPICKLE_IMAGE:?Set a verified image reference with @sha256 digest}
+    user: "10001:10001"
+    read_only: true
+    cap_drop: [ALL]
+    security_opt: [no-new-privileges:true]
+    restart: unless-stopped
+    stop_grace_period: 65m
+    ports:
+      - "127.0.0.1:${GITPICKLE_PORT:-8080}:8080"
+    env_file:
+      - ${GITPICKLE_RUNTIME_ENV:?Set the absolute runtime secrets file path}
+    volumes:
+      - cache:/var/lib/gitpickle
+      - ${GITPICKLE_POLICY:?Set the absolute private policy path}:/run/gitpickle/policy.json:ro
+    tmpfs:
+      - /tmp:mode=1777,size=256m
+volumes:
+  cache:

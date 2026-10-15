@@ -165,4 +165,7 @@ class Writer:
     def capture(self, repo, repo_id, source, lfs=None, operation_id=None, wiki=None):
         import gitpickle_archive as a
         with self.mutation(repo_id):
+            from gitpickle_hosted import state
+            if state(self.root, repo_id)[1]['mode'] == 'hosted':
+                raise PermissionError('source updates paused; explicit reconciliation required')
             return a._capture(self.root, repo, repo_id, source, lfs, self.owner_key, operation_id, wiki)

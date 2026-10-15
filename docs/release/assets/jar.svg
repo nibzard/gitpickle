@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="240" height="260" viewBox="0 0 240 260" role="img" aria-labelledby="title desc">
+<title id="title">GitPickle working jar concept</title><desc id="desc">A cream preserving jar with a mustard lid and a green branching commit graph.</desc>
+<rect x="61" y="22" width="118" height="28" rx="7" fill="#d4a72c" stroke="#284b29" stroke-width="6"/>
+<path d="M70 51v18Q44 82 46 109v112q0 17 18 17h112q18 0 18-17V109q2-27-24-40V51" fill="#fff7df" stroke="#284b29" stroke-width="6"/>
+<rect x="60" y="101" width="120" height="102" rx="12" fill="#c7e87b"/>
+<path d="M99 180v-54m0 27q44 0 44-27" fill="none" stroke="#284b29" stroke-width="8"/>
+<g fill="#fff7df" stroke="#284b29" stroke-width="5"><circle cx="99" cy="180" r="10"/><circle cx="99" cy="124" r="10"/><circle cx="143" cy="124" r="10"/></g>
+</svg>

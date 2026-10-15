@@ -1,0 +1,49 @@
+TLC2 Version 2.19 of 08 August 2024 (rev: 5a47802)
+Warning: Please run the Java VM which executes TLC with a throughput optimized garbage collector by passing the "-XX:+UseParallelGC" property.
+(Use the -nowarning option to disable this warning.)
+Running breadth-first search Model-Checking with fp 0 and seed 1 with 1 worker on 8 cores with 1024MB heap and 64MB offheap memory [pid: 2733139] (Linux 6.8.0-147-generic amd64, Ubuntu 21.0.12.1 x86_64, MSBDiskFPSet, DiskStateQueue).
+Parsing file /home/agent/.looper/gitpickle-c39a4efa/runtime/worktrees/task-903b01c63a05507c/spec/GitPublish.tla
+Parsing file /tmp/Naturals.tla
+Parsing file /tmp/FiniteSets.tla
+Parsing file /tmp/Sequences.tla
+Semantic processing of module Naturals
+Semantic processing of module Sequences
+Semantic processing of module FiniteSets
+Semantic processing of module GitPublish
+Starting... (2026-10-15 19:50:58)
+Computing initial states...
+Finished computing initial states: 1 distinct state generated at 2026-10-15 19:50:58.
+Error: Invariant AcknowledgedPushIsDurable is violated.
+Error: The behavior up to this point is:
+State 1: <Initial predicate>
+/\ replies = {}
+/\ manifests = {}
+/\ published = {}
+/\ staged = {}
+/\ durable = {}
+/\ visible = {}
+
+State 2: <Stage line 15, col 13 to line 18, col 76 of module GitPublish>
+/\ replies = {}
+/\ manifests = {}
+/\ published = {}
+/\ staged = { [ result |->
+        [generation |-> 1, refs |-> {main}, atomic |-> FALSE, rejected |-> {}],
+    attempt |-> a1 ] }
+/\ durable = {}
+/\ visible = {}
+
+State 3: <Reply line 31, col 13 to line 33, col 75 of module GitPublish>
+/\ replies = {[generation |-> 1, refs |-> {main}, atomic |-> FALSE, rejected |-> {}]}
+/\ manifests = {}
+/\ published = {}
+/\ staged = { [ result |->
+        [generation |-> 1, refs |-> {main}, atomic |-> FALSE, rejected |-> {}],
+    attempt |-> a1 ] }
+/\ durable = {}
+/\ visible = {}
+
+119 states generated, 85 distinct states found, 66 states left on queue.
+The depth of the complete state graph search is 3.
+The average outdegree of the complete state graph is 5 (minimum is 3, the maximum 31 and the 95th percentile is 31).
+Finished in 00s at (2026-10-15 19:50:58)

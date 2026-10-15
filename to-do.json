@@ -106,26 +106,23 @@
       "id": "T004",
       "title": "Provision disposable R2 and GitHub test resources",
       "priority": 1,
-      "status": "blocked",
-      "details": "User authorizes provisioning disposable Cloudflare R2 storage through the configured Cloudflare CLI and a disposable private GitHub test repository through the configured GitHub CLI. Verify account identity, access, and available capabilities before creation. Use unique test resource names and prefixes, scoped access, and ownership-checked cleanup registered before resource creation. Record nonsecret resource identifiers and the permitted test scope. Never use unrelated repositories or buckets. If the configured account lacks access, report that concrete failure. S3 and B2 accounts and live tests belong to T053/T054 at final validation; they do not block this task. No provider resources have been provisioned by this backlog update.",
+      "status": "done",
+      "details": "User authorizes provisioning disposable Cloudflare R2 storage through the configured Cloudflare CLI and a disposable private GitHub test repository through the configured GitHub CLI. Verify account identity, access, and available capabilities before creation. Use unique test resource names and prefixes, scoped access, and ownership-checked cleanup registered before resource creation. Record nonsecret resource identifiers and the permitted test scope. Never use unrelated repositories or buckets. If the configured account lacks access, report that concrete failure. S3 and B2 accounts and live tests belong to T053/T054 at final validation; they do not block this task. No provider resources have been provisioned by this backlog update.\nOwner credential handoff, 15 October 2026: use the owner-provided private bucket gitpickle-dev-tests at the documented default R2 endpoint. Runtime credentials and GITPICKLE_STORAGE_CONFIG are in /home/agent/.config/gitpickle/r2-test.env (mode 0600, outside the repository). Source that file only in the shell for authenticated operations; never print the file, secrets, or credential-bearing environment/headers. The configuration uses region auto and the gitpickle-development/ test prefix. /home/agent/.config/gitpickle/r2-access-check.json records a successful signed S3 list/write/readback/delete probe and completed object cleanup. This is access evidence, not full conformance acceptance. Treat this bucket as owner-provided persistent test infrastructure: use unique operation subprefixes, register ownership-checked cleanup for owned test objects, and never delete the bucket or unrelated objects. Cloudflare API token creation is no longer required and its earlier HTTP 403 is not a blocker. Existing GitHub CLI permission includes delete_repo. Verify/recreate only task-owned disposable GitHub fixtures where needed and preserve the resource handoff for T007. Reuse useful prior provisioning evidence from retained T004 attempts without treating cleaned-up resources as still present.",
       "depends_on": [
         "T001"
       ],
       "files": [
         ".gitignore",
         "docs/test-resources.md",
-        "tests/results/resources/t004-preflight.json"
-      ],
-      "blockers": [
-        "An operator must complete this prerequisite; coding workers cannot execute it.",
-        "Cloudflare rejects scoped token creation with HTTP 403, code 9109. Runtime R2 S3-compatible credentials are absent."
+        "tests/results/resources/t004-preflight.json",
+        "tools/gitpickle_test_resources.py",
+        "tools/test_gitpickle_test_resources.py",
+        "tools/test_gitpickle_workflow.py"
       ],
       "tags": [
-        "looper:finding:development-r2-github-resources",
-        "looper:operator"
+        "looper:finding:development-r2-github-resources"
       ],
-      "updated_at": "2026-10-15T13:41:02Z",
-      "unblock_when": "Record evidence that the operator completed the action, then mark this task done. To delegate different work, explicitly change its contract and remove looper:operator."
+      "updated_at": "2026-10-15T14:17:11Z"
     },
     {
       "id": "T005",
@@ -157,52 +154,92 @@
       "title": "Implement R2, S3, and B2 storage adapters",
       "priority": 1,
       "status": "done",
-      "details": "Implement each adapter against the shared contract. Document required operations, credential permissions, endpoint configuration, retry behavior, and supported capabilities. Run deterministic adapter tests without live credentials. Keep real-provider verification explicitly separate and report unavailable capabilities rather than assuming S3 compatibility.",
+      "details": "Implement each adapter against the shared contract. Document required operations, credential permissions, endpoint configuration, retry behavior, and supported capabilities. Run deterministic adapter tests without live credentials. Keep real-provider verification explicitly separate and report unavailable capabilities rather than assuming S3 compatibility.\n\nOwner-authorized review repair, 15 October 2026: Repair the unresolved B2 archive publication finding from review event 5178. The current B2 adapter advertises conditional_create=false, and tools/gitpickle_cloud.py rejects protection without that capability. Implement and test a provider-compatible durable publication strategy that preserves the storage and single-writer contracts. Do not enable unsupported capabilities or weaken durability guarantees. Use deterministic capability, failure, and recovery tests here; live S3/B2 acceptance remains T053/T054 and requires authorized access.",
       "depends_on": [
         "T005"
       ],
       "files": [
         ".gitignore",
         "Cargo.lock",
+        "README.md",
         "crates/adapters/Cargo.toml",
+        "crates/adapters/src/archive_store.rs",
+        "crates/adapters/src/recovery.rs",
         "crates/adapters/src/storage/conformance.rs",
         "crates/adapters/src/storage/emulator.rs",
         "crates/adapters/src/storage/mod.rs",
         "crates/adapters/src/storage/providers.rs",
+        "crates/adapters/src/storage/publication.rs",
         "crates/adapters/tests/providers.rs",
+        "crates/adapters/tests/publication.rs",
         "crates/application/src/storage.rs",
+        "docs/archive-format/README.md",
+        "docs/compatibility.md",
+        "docs/release/reviews.md",
         "docs/storage-contract.md",
-        "docs/storage-providers.md"
+        "docs/storage-providers.md",
+        "tests/cli_contract.rs",
+        "tools/gitpickle_cloud.py",
+        "tools/test_gitpickle_cloud.py"
       ],
       "tags": [
         "looper:finding:b2-durable-archive-publication"
       ],
-      "updated_at": "2026-10-15T07:46:29Z"
+      "updated_at": "2026-10-15T20:19:08Z"
     },
     {
       "id": "T007",
       "title": "Verify the storage contract against R2",
       "priority": 1,
-      "status": "todo",
+      "status": "done",
       "details": "Run the existing conformance harness against the disposable R2 resources from T004. Record listing, checksums, multipart completion, ambiguous response, and conditional-publication evidence where used. Document takeover constraints and verified retention capabilities. Reject unsupported durability assumptions. Use deterministic tests for all adapters during development. Actual S3 and B2 conformance and capability evidence remain mandatory in T054 after implementation. Do not claim that R2 results establish S3 or B2 behavior.",
       "depends_on": [
         "T004",
         "T006"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z"
+      "files": [
+        ".gitignore",
+        "crates/adapters/examples/r2_conformance.rs",
+        "crates/adapters/src/storage/conformance.rs",
+        "crates/adapters/tests/providers.rs",
+        "crates/adapters/tests/storage.rs",
+        "docs/r2-conformance.md",
+        "docs/storage-contract.md",
+        "docs/storage-providers.md",
+        "tools/gitpickle_r2_conformance.py",
+        "tools/test_gitpickle_r2_conformance.py"
+      ],
+      "updated_at": "2026-10-15T14:32:00Z"
     },
     {
       "id": "T008",
       "title": "Evaluate walgit and select the Git engine",
       "priority": 1,
-      "status": "todo",
+      "status": "done",
       "details": "Run the bounded adoption spike using the specified fork at ~/walgit. Report an unavailable checkout as a prerequisite failure. Assess crate integration, licensing, dependency inventory, credentials, Git hash formats, LFS, rewritten history, snapshot portability, and the mixed portfolio. Compare against stock Git HTTP using fixed fixtures. Test crash and acknowledgment boundaries with emulated storage and the verified provider contracts. Record an adoption decision or a standard Git fallback behind a narrow GitEngine interface. Keep writable-hosting failures from blocking the backup implementation.\nOwner staging: perform the adoption spike here with small fixed fixtures and verified R2 behavior. Keep deterministic contracts for all providers. Defer full-scale measurements and actual S3/B2 checks to T051/T054; those external resources do not block implementing the GitEngine boundary.",
       "depends_on": [
         "T003",
         "T005",
         "T007"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z"
+      "files": [
+        ".gitignore",
+        "crates/adapters/src/git_engine.rs",
+        "crates/adapters/src/lib.rs",
+        "crates/adapters/tests/git_engine.rs",
+        "crates/application/src/lib.rs",
+        "docs/adr/0002-git-engine.md",
+        "docs/adr/README.md",
+        "docs/adr/evidence/git-engine-v1.json",
+        "docs/development.md",
+        "tools/gitpickle_engine_spike.py",
+        "tools/test_gitpickle_engine.py",
+        "tools/walgit_probe.rs"
+      ],
+      "tags": [
+        "looper:finding:git-engine-adoption-validation"
+      ],
+      "updated_at": "2026-10-15T15:06:44Z"
     },
     {
       "id": "T009",
@@ -386,6 +423,9 @@
         "tools/gitpickle_jobs.py",
         "tools/test_gitpickle_github.py"
       ],
+      "tags": [
+        "looper:finding:automatic-future-repository-capture"
+      ],
       "updated_at": "2026-10-15T08:36:49Z"
     },
     {
@@ -521,7 +561,7 @@
       "title": "Deliver the guided command-line workflow",
       "priority": 2,
       "status": "done",
-      "details": "Implement protect github, checkout-based protect, status, backup, sync, restore, doctor, and two help levels through shared services. Resume setup without duplicate jobs or repeated completed authorization. Preview scope and changes; probe authentication, storage, capabilities, and staging disk before applying. Require separate permission for bucket creation. Preserve local remotes and uncommitted work. Support masked secrets, keyboard use, NO_COLOR, narrow output, explicit time zones, versioned JSON, and stderr diagnostics. Noninteractive calls never prompt. Test scope changes, --all, durable job IDs, --wait, and client detachment.",
+      "details": "Implement protect github, checkout-based protect, status, backup, sync, restore, doctor, and two help levels through shared services. Resume setup without duplicate jobs or repeated completed authorization. Preview scope and changes; probe authentication, storage, capabilities, and staging disk before applying. Require separate permission for bucket creation. Preserve local remotes and uncommitted work. Support masked secrets, keyboard use, NO_COLOR, narrow output, explicit time zones, versioned JSON, and stderr diagnostics. Noninteractive calls never prompt. Test scope changes, --all, durable job IDs, --wait, and client detachment.\n\nOwner-authorized review repair, 15 October 2026: Repair the unresolved guided first-run finding from review event 5179. tools/gitpickle_setup.py currently tells users to create policy.json and runtime.env manually. Complete guided configuration for first-run protection under gitpickle.md section 8, including preview, explicit authorization, secret handling, validation, safe resumption, and noninteractive behavior. Test that users can complete supported setup without hand-editing configuration files. Preserve existing configuration and require authorization for external changes.",
       "depends_on": [
         "T017",
         "T018",
@@ -540,17 +580,24 @@
         "crates/interfaces/src/lib.rs",
         "docs/cli-workflow.md",
         "docs/development.md",
+        "docs/setup.md",
         "tests/cli_contract.rs",
         "tools/gitpickle_cloud.py",
         "tools/gitpickle_daemon.py",
         "tools/gitpickle_jobs.py",
         "tools/gitpickle_recovery.py",
+        "tools/gitpickle_setup.py",
         "tools/gitpickle_status.py",
         "tools/gitpickle_workflow.py",
         "tools/test_gitpickle_cloud.py",
+        "tools/test_gitpickle_setup.py",
         "tools/test_gitpickle_workflow.py"
       ],
-      "updated_at": "2026-10-15T10:28:37Z"
+      "tags": [
+        "looper:finding:management-error-exit-codes",
+        "looper:finding:guided-first-run-runtime-configuration"
+      ],
+      "updated_at": "2026-10-15T20:32:15Z"
     },
     {
       "id": "T021",
@@ -592,7 +639,7 @@
       "id": "T022",
       "title": "Verify local and R2 portfolio recovery",
       "priority": 1,
-      "status": "todo",
+      "status": "done",
       "details": "Execute the M1 and M2 acceptance scenarios on this machine using isolated local and disposable R2/GitHub resources. Protect a private test repository, destroy only test daemon state, block GitHub access for the test process, and restore from storage. Repeat with Git/LFS/wiki coverage and small deterministic portfolio fixtures. Verify source deletion, force-push history, missing LFS, upload crashes, durable job reconstruction, and scheduling fairness. Record R2 capture, no-change, restore, and index-rebuild evidence. Equivalent live S3/B2 scenarios remain required in T054. Full-size portfolio and performance measurements belong to T051. Do not alter unrelated workloads or claim deferred tests have passed.",
       "depends_on": [
         "T003",
@@ -600,22 +647,46 @@
         "T016",
         "T021"
       ],
+      "files": [
+        ".gitignore",
+        "docs/portfolio-recovery.md",
+        "tools/gitpickle_portfolio_recovery.py",
+        "tools/recovery_network_guard.c",
+        "tools/test_gitpickle_portfolio_recovery.py"
+      ],
       "tags": [
         "looper:finding:r2-portfolio-recovery"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z"
+      "updated_at": "2026-10-15T15:29:35Z"
     },
     {
       "id": "T023",
       "title": "Serve authenticated read-only Git HTTPS",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Integrate the selected Git engine behind GitEngine. Serve only committed generations and durable LFS data. Keep hosting disabled until explicitly enabled. Enforce repository authorization and reject pushes to protected mirrors with a clear explanation. Display the canonical remote URL and mode. Test ordinary clone, fetch, pull, tags, authentication failures, empty repositories, and advertised protocol features. Publish a compatibility matrix without unsupported claims.",
       "depends_on": [
         "T008",
         "T016",
         "T019"
-      ]
+      ],
+      "files": [
+        ".gitignore",
+        "crates/adapters/src/daemon.rs",
+        "crates/adapters/src/git_engine.rs",
+        "crates/adapters/tests/git_engine.rs",
+        "crates/application/src/lib.rs",
+        "crates/gitpickle/src/main.rs",
+        "crates/interfaces/src/lib.rs",
+        "docs/development.md",
+        "docs/git-hosting.md",
+        "docs/security.md",
+        "tools/gitpickle_daemon.py",
+        "tools/gitpickle_hosting.py",
+        "tools/gitpickle_workflow.py",
+        "tools/test_gitpickle_hosting.py"
+      ],
+      "updated_at": "2026-10-15T15:44:13Z"
     },
     {
       "id": "T024",
@@ -647,35 +718,95 @@
       "id": "T025",
       "title": "Provide the optional terminal interface",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Implement gitpickle tui with portfolio search, filters, repository details, recovery points, jobs, and reviewed operations. Reuse application services and authorization. Display backup coverage and hosting mode separately. Support keyboard navigation, small terminals, and NO_COLOR. Keep every operation available through the plain CLI and never start the interface for JSON or agent automation. Test navigation and measure startup, search latency, and resource use over 404 repositories.",
       "depends_on": [
         "T020",
         "T023"
-      ]
+      ],
+      "files": [
+        ".gitignore",
+        "README.md",
+        "crates/adapters/src/daemon.rs",
+        "crates/gitpickle/src/main.rs",
+        "crates/interfaces/src/lib.rs",
+        "docs/tui.md",
+        "tests/cli_contract.rs",
+        "tools/gitpickle_daemon.py",
+        "tools/gitpickle_plans.py",
+        "tools/gitpickle_tui.py",
+        "tools/gitpickle_tui_bench.py",
+        "tools/gitpickle_workflow.py",
+        "tools/test_gitpickle_tui.py"
+      ],
+      "tags": [
+        "looper:finding:optional-terminal-interface"
+      ],
+      "updated_at": "2026-10-15T16:55:11Z"
     },
     {
       "id": "T026",
       "title": "Package reproducible VM and container deployments",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Provide versioned binaries, systemd units, and pinned Open Container Initiative images with gitpickle serve as entrypoint. Disclose native Git dependencies and licenses. Generate a software bill of materials and artifact verification instructions. Containers run unprivileged, expose health/readiness, log to standard streams, and handle SIGTERM safely. Supply Coolify and standalone container recipes with runtime secrets. Test install, restart, upgrade, and loss of local volumes without losing committed archive data.",
       "depends_on": [
         "T014",
         "T019",
         "T023"
-      ]
+      ],
+      "files": [
+        ".dockerignore",
+        ".gitignore",
+        "README.md",
+        "deploy/Dockerfile",
+        "deploy/compose.yaml",
+        "deploy/systemd/gitpickle.service",
+        "docs/deployment.md",
+        "tools/gitpickle_daemon.py",
+        "tools/gitpickle_deployment_acceptance.py",
+        "tools/gitpickle_oci.py",
+        "tools/gitpickle_package.py",
+        "tools/gitpickle_runtime_sbom.py",
+        "tools/gitpickle_systemd_acceptance.py",
+        "tools/test_gitpickle_deployment.py",
+        "tools/test_gitpickle_package.py"
+      ],
+      "tags": [
+        "looper:finding:reproducible-deployment-artifacts"
+      ],
+      "updated_at": "2026-10-15T16:17:29Z"
     },
     {
       "id": "T027",
       "title": "Guide remote installation and private HTTPS configuration",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Extend setup for local execution, a Linux server over Secure Shell, and guided Coolify deployment. Verify server identity and preview installation, privileges, dependencies, and configuration changes. Detect existing Tailscale and guide private HTTPS without automatic account enrollment or public Funnel. Bind private container ports to host loopback. Document optional public reverse-proxy settings for streamed Git/LFS traffic and protected management routes. Test resumable setup and configuration isolation.",
       "depends_on": [
         "T020",
         "T026"
-      ]
+      ],
+      "files": [
+        ".gitignore",
+        "README.md",
+        "crates/adapters/src/daemon.rs",
+        "crates/gitpickle/src/main.rs",
+        "crates/interfaces/src/lib.rs",
+        "deploy/nginx-git.conf.example",
+        "docs/cli-workflow.md",
+        "docs/deployment.md",
+        "docs/setup.md",
+        "tests/cli_contract.rs",
+        "tools/gitpickle_package.py",
+        "tools/gitpickle_setup.py",
+        "tools/gitpickle_workflow.py",
+        "tools/test_gitpickle_setup.py"
+      ],
+      "tags": [
+        "looper:finding:guided-installation-private-https"
+      ],
+      "updated_at": "2026-10-15T16:34:13Z"
     },
     {
       "id": "T028",
@@ -704,7 +835,7 @@
       "id": "T029",
       "title": "Verify deployment and Git recovery locally",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Exercise locally available binary, daemon, and isolated container deployment paths on this machine with pinned artifacts. Verify ordinary Git clone/fetch, repository authorization, restart, deletion of test cache/index state, and recovery from R2. Record local startup and cold/warm access measurements with their limitations. Prepare reproducible systemd, Coolify, private HTTPS, and tailnet test procedures and fixtures. Live fresh-machine validation of every required deployment profile remains mandatory in T055; unavailable external hosts do not block this local task. Do not claim unrun systemd, Coolify, private HTTPS, or tailnet scenarios have passed.",
       "depends_on": [
         "T021",
@@ -713,13 +844,25 @@
         "T027",
         "T028"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z"
+      "files": [
+        ".gitignore",
+        "docs/deployment-acceptance.md",
+        "docs/deployment.md",
+        "tools/gitpickle_deployment_acceptance.py",
+        "tools/gitpickle_deployment_probe.py",
+        "tools/gitpickle_systemd_acceptance.py",
+        "tools/test_gitpickle_deployment.py"
+      ],
+      "tags": [
+        "looper:finding:local-deployment-recovery-validation"
+      ],
+      "updated_at": "2026-10-15T17:09:58Z"
     },
     {
       "id": "T030",
       "title": "Automate correctness, model, fault, and performance gates",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Wire pull-request, nightly, and release suites from Appendix C into locally runnable tooling and continuous integration. Implement the proposed fault-test command and preserve regression traces. Compare clean baseline and candidate runs against both merge base and pinned release baseline. Characterize noise before enforcing numeric timing budgets. Implement warning, confirmation, waiver, and invalid-run rules. Nightly suites include large fixtures and separately credentialed provider canaries. Archive raw evidence outside the source repository.\nOwner staging: implement every suite and gate now. Validate correctness, model/fault handling, and small benchmarks on this machine. Full-size runs execute only in T051 on the final pve2 VM profile. Actual S3/B2 canaries and remote deployment acceptance remain deferred to T054/T055. Keep those gates explicitly pending; do not require their resources merely to implement and test the tooling locally.",
       "depends_on": [
         "T003",
@@ -729,16 +872,28 @@
         "T025",
         "T029"
       ],
+      "files": [
+        ".github/actionlint.yaml",
+        ".github/workflows/validation.yml",
+        ".gitignore",
+        "docs/development.md",
+        "docs/validation-gates.md",
+        "tools/gitpickle_gates.py",
+        "tools/gitpickle_perf.py",
+        "tools/test_gitpickle_gates.py",
+        "tools/test_gitpickle_perf.py",
+        "xtask/src/main.rs"
+      ],
       "tags": [
         "looper:finding:automated-validation-gates"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z"
+      "updated_at": "2026-10-15T17:36:28Z"
     },
     {
       "id": "T031",
       "title": "Prepare moderated usability acceptance",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Create the study procedure and reproducible scenarios from sections 8 and D.3. Include partial authorization, missing LFS, an offline server, a new restore destination, and portfolio navigation. Measure unaided setup, incomplete-backup recognition, safe restore, and understanding of configured, verified, and fresh. Prepare evidence templates without presenting proposed results as observations.\nOwner staging: prepare this study only during final validation, after T052. This task does not block implementation or local release-document preparation.",
       "depends_on": [
         "T020",
@@ -746,7 +901,20 @@
         "T027",
         "T052"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z"
+      "files": [
+        ".gitignore",
+        "docs/usability/README.md",
+        "docs/usability/observation-template.csv",
+        "docs/usability/report-template.md",
+        "docs/usability/scenarios.md",
+        "docs/usability/session-template.json",
+        "docs/validation-gates.md",
+        "tools/gitpickle_usability_fixture.py"
+      ],
+      "tags": [
+        "looper:finding:moderated-usability-study-preparation"
+      ],
+      "updated_at": "2026-10-15T19:36:26Z"
     },
     {
       "id": "T032",
@@ -804,7 +972,7 @@
       "id": "T034",
       "title": "Prepare operator release documentation and local evidence",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Prepare operator, recovery, archive-format, compatibility, and deployment documentation while developing under the GitPickle working name. Use the specified jar and mascot direction without weakening operational wording. Complete storage/protocol, model-aware, and security reviews of the implemented product. Include available local/R2 measurements and label missing evidence. Describe M3 hosting as read-only and mark later connectors and optional capabilities unavailable. Track real-user findings, the final cleared-name application, full-size measured baseline, clean-machine recovery, and all remaining section 8 evidence in T056. Preparing documentation does not declare M3 or the public release complete. T032 and T033 are final gates, not prerequisites for writing this documentation.",
       "depends_on": [
         "T024",
@@ -812,25 +980,64 @@
         "T029",
         "T030"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z"
+      "files": [
+        ".gitignore",
+        "README.md",
+        "docs/archive-format/README.md",
+        "docs/compatibility.md",
+        "docs/operator.md",
+        "docs/release/README.md",
+        "docs/release/assets/jar.svg",
+        "docs/release/assets/mascot.svg",
+        "docs/release/identity.md",
+        "docs/release/reviews.md",
+        "docs/security.md"
+      ],
+      "updated_at": "2026-10-15T18:17:10Z"
     },
     {
       "id": "T035",
       "title": "Model durable Git publication and prove the integration boundary",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Create GitPublish.tla before implementing writable publication. Model staged generations, object durability, publication, final acknowledgment, crash recovery, and retry ambiguity. Prototype the engine response gate against native Git semantics, including atomic and mixed-result pushes. Demonstrate that progress can stream while final success waits for durable publication. Document failures and the tested coordinator approach; keep read-only hosting available while this gate remains unresolved.",
       "depends_on": [
         "T008",
         "T009",
         "T023"
-      ]
+      ],
+      "files": [
+        ".gitignore",
+        "docs/adr/evidence/git-publication-v1.json",
+        "docs/development.md",
+        "docs/git-hosting.md",
+        "docs/git-publication.md",
+        "spec/GitPublish.tla",
+        "spec/README.md",
+        "spec/config/GitPublish-nightly.cfg",
+        "spec/config/GitPublish-pr.cfg",
+        "spec/config/GitPublish-regression.cfg",
+        "spec/evidence/git-publish-nightly.json",
+        "spec/evidence/git-publish-nightly.log",
+        "spec/evidence/git-publish-pr.json",
+        "spec/evidence/git-publish-pr.log",
+        "spec/evidence/git-publish-regression.json",
+        "spec/evidence/git-publish-regression.log",
+        "spec/regressions/GitPublish.trace",
+        "tools/gitpickle_model.py",
+        "tools/gitpickle_publish_spike.py",
+        "tools/test_gitpickle_publish.py"
+      ],
+      "tags": [
+        "looper:finding:durable-git-publication-response-gate"
+      ],
+      "updated_at": "2026-10-15T18:03:36Z"
     },
     {
       "id": "T036",
       "title": "Implement explicit hosted mode and durable pushes",
       "priority": 3,
-      "status": "todo",
+      "status": "done",
       "details": "Add authorized hosted-repository creation and mirror conversion with a retained checkpoint and paused source updates. Require explicit reconciliation before resuming mirroring. Stage pushes privately under repository serialization, persist the resulting object closure and generation, then expose refs and acknowledge success. Reconcile committed operations after lost responses. Make LFS upload success durable and define the missing-LFS push policy. Tests prove mirroring cannot overwrite hosted refs and storage failure cannot produce local-only success.",
       "depends_on": [
         "T014",
@@ -838,7 +1045,31 @@
         "T018",
         "T023",
         "T035"
-      ]
+      ],
+      "files": [
+        ".gitignore",
+        "crates/adapters/src/daemon.rs",
+        "crates/interfaces/src/lib.rs",
+        "docs/git-hosting.md",
+        "docs/git-publication.md",
+        "tools/gitpickle_daemon.py",
+        "tools/gitpickle_github.py",
+        "tools/gitpickle_hosted.py",
+        "tools/gitpickle_hosting.py",
+        "tools/gitpickle_jobs.py",
+        "tools/gitpickle_publish_spike.py",
+        "tools/gitpickle_receive.py",
+        "tools/gitpickle_workflow.py",
+        "tools/gitpickle_writer.py",
+        "tools/test_gitpickle_cloud.py",
+        "tools/test_gitpickle_github.py",
+        "tools/test_gitpickle_hosting.py",
+        "tools/test_gitpickle_workflow.py"
+      ],
+      "tags": [
+        "looper:finding:hosted-repositories-durable-pushes"
+      ],
+      "updated_at": "2026-10-15T18:53:46Z"
     },
     {
       "id": "T037",
@@ -853,6 +1084,9 @@
         "T036",
         "T054",
         "T055"
+      ],
+      "tags": [
+        "looper:finding:complete-m4-git-contract"
       ],
       "updated_at": "2026-10-15T05:47:38.161443Z"
     },
@@ -1102,7 +1336,7 @@
       "id": "T052",
       "title": "Complete implementation and local validation",
       "priority": 2,
-      "status": "todo",
+      "status": "done",
       "details": "Finish all implementation paths, including hosted mode, with local correctness/model/fault checks, small benchmarks, and verified R2 integration evidence. Use this machine for development. Every dependency must have real implementation and bounded local acceptance evidence. Record remaining final gates explicitly. This milestone does not claim live S3/B2, fresh-VM deployment, real-user study, full-size performance, or naming clearance is complete. It gates the final-validation stage and never depends on those deferred tasks.",
       "depends_on": [
         "T007",
@@ -1129,10 +1363,28 @@
         "T035",
         "T036"
       ],
+      "files": [
+        ".gitignore",
+        "README.md",
+        "docs/archive-format/README.md",
+        "docs/compatibility.md",
+        "docs/git-hosting.md",
+        "docs/implementation-acceptance.md",
+        "docs/operator.md",
+        "docs/release/README.md",
+        "docs/security.md",
+        "docs/setup.md",
+        "docs/validation-gates.md",
+        "tools/gitpickle_archive.py",
+        "tools/gitpickle_capture_bench.py",
+        "tools/gitpickle_hosted_acceptance.py",
+        "tools/test_gitpickle_capture.py",
+        "tools/test_gitpickle_hosting.py"
+      ],
       "tags": [
         "looper:finding:integrated-implementation-local-validation"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z",
+      "updated_at": "2026-10-15T19:18:14Z",
       "created_at": "2026-10-15T05:47:38.161443Z"
     },
     {
@@ -1178,17 +1430,28 @@
       "id": "T055",
       "title": "Validate fresh VM deployments through AgentLab on pve2",
       "priority": 2,
-      "status": "todo",
+      "status": "blocked",
       "details": "After implementation and local tests finish, inspect configured AgentLab CLI and pve2 access and provision isolated fresh VMs for final acceptance. The host name is pve2, not pv2. Verify the required binary/systemd and Coolify/container profiles, authorized tailnet clients, private HTTPS, ordinary Git access, authorization, daemon loss, deletion of test cache/index state, and recovery from storage. Record startup/restart readiness, HTTPS latency, and cold/warm evidence separately by profile. Record the pinned runner hardware/network and independent evidence storage for T051. If required access or a profile is unavailable, retain that explicit final gate; do not substitute this development machine or claim an unrun profile passed. Preserve unrelated hosts and workloads and use ownership-checked cleanup.",
       "depends_on": [
         "T052"
       ],
-      "tags": [
-        "stage:final-validation",
-        "looper:finding:final-fresh-vm-deployment-validation"
+      "files": [
+        "docs/deployment-acceptance.md"
       ],
-      "updated_at": "2026-10-15T05:47:38.161443Z",
-      "created_at": "2026-10-15T05:47:38.161443Z"
+      "blockers": [
+        "AgentLab uses pve.agentlab.local, but the certificate covers pve2.",
+        "An operator must complete this prerequisite; coding workers cannot execute it.",
+        "Configured SSH credentials fail for root@pve2 and agent@pve2.",
+        "Fresh systemd and Coolify acceptance, tailnet checks, recovery measurements, and the T051 runner allocation remain unverified."
+      ],
+      "tags": [
+        "looper:finding:final-fresh-vm-deployment-validation",
+        "looper:operator",
+        "stage:final-validation"
+      ],
+      "updated_at": "2026-10-15T19:39:03Z",
+      "created_at": "2026-10-15T05:47:38.161443Z",
+      "unblock_when": "Record evidence that the operator completed the action, then mark this task done. To delegate different work, explicitly change its contract and remove looper:operator."
     },
     {
       "id": "T056",
@@ -1212,6 +1475,48 @@
       ],
       "updated_at": "2026-10-15T05:47:38.161443Z",
       "created_at": "2026-10-15T05:47:38.161443Z"
+    },
+    {
+      "id": "T057",
+      "title": "Stream large Git and LFS downloads",
+      "priority": 2,
+      "status": "done",
+      "details": "Replace buffered responses with bounded streaming through the engine, bridge, and gateway. Preserve authorization and integrity checks. Test transfers above 64 MiB before full-size validation.\nEvidence: The engine and gateway currently cap Git responses and individual LFS downloads at 64 MiB. docs/git-hosting.md records this limit.",
+      "depends_on": [
+        "T023"
+      ],
+      "files": [
+        ".gitignore",
+        "crates/adapters/src/git_engine.rs",
+        "crates/adapters/tests/git_engine.rs",
+        "crates/application/src/lib.rs",
+        "docs/git-hosting.md",
+        "tools/gitpickle_archive.py",
+        "tools/gitpickle_hosting.py",
+        "tools/gitpickle_recovery.py",
+        "tools/gitpickle_security.py",
+        "tools/test_gitpickle_hosting.py",
+        "tools/test_gitpickle_security.py"
+      ],
+      "tags": [
+        "looper:finding:git-http-large-transfer-streaming"
+      ],
+      "updated_at": "2026-10-15T18:36:25Z"
+    },
+    {
+      "id": "T058",
+      "title": "Select the project distribution license",
+      "priority": 2,
+      "status": "blocked",
+      "details": "Record the owner's license decision before public distribution.\nEvidence: The repository has no project license file or workspace license declaration. Generated notices disclose this gap.",
+      "blockers": [
+        "An operator must complete this prerequisite; coding workers cannot execute it."
+      ],
+      "tags": [
+        "looper:finding:project-distribution-license",
+        "looper:operator"
+      ],
+      "unblock_when": "Record evidence that the operator completed the action, then mark this task done. To delegate different work, explicitly change its contract and remove looper:operator."
     }
   ]
 }

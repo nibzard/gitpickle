@@ -72,12 +72,25 @@ pub fn run(args: Vec<OsString>) -> std::result::Result<u8, String> {
             _ => return Err("configuration".into()),
         };
         match args.first().and_then(|s| s.to_str()) {
+            Some("check") if args.len() == 1 => {
+                let caps = store.capabilities();
+                if !caps.completed_write_visibility
+                    || (!caps.conditional_create && location.provider != "b2")
+                {
+                    return Err("unsupported_capability".into());
+                }
+                store
+                    .list(&location.prefix, None, 1)
+                    .map_err(|_| "storage_unavailable")?;
+                println!("{{\"storage_access\":true}}");
+            }
             Some("capabilities") if args.len() == 1 => {
                 let caps = store.capabilities();
                 println!(
                     "{}",
                     serde_json::json!({
                         "conditional_create": caps.conditional_create,
+                        "archive_publication": if location.provider == "b2" { "content-addressed-v1" } else { "conditional-v1" },
                         "completed_write_visibility": caps.completed_write_visibility,
                         "retention_enforced": false
                     })
@@ -92,7 +105,17 @@ pub fn run(args: Vec<OsString>) -> std::result::Result<u8, String> {
                 let key = ObjectKey::new(format!("{}{relative}", location.prefix))
                     .map_err(|_| "invalid_input")?;
                 let bytes = fs::read(&args[2]).map_err(|_| "storage_unavailable")?;
-                persist(store.as_mut(), &key, &bytes).map_err(|e| format!("{e:?}"))?;
+                if location.provider == "b2" {
+                    crate::storage::publication::publish(
+                        store.as_mut(),
+                        &location.prefix,
+                        relative,
+                        &bytes,
+                    )
+                } else {
+                    persist(store.as_mut(), &key, &bytes)
+                }
+                .map_err(|e| format!("{e:?}"))?;
             }
             _ => return Err("invalid_input".into()),
         }
@@ -103,7 +126,7 @@ pub fn run(args: Vec<OsString>) -> std::result::Result<u8, String> {
         Err(_) => {
             // Never include provider bodies, request URLs, or credential material.
             eprintln!(
-                "storage_unavailable: Check storage access and required conditional-write capabilities."
+                "storage_unavailable: Check storage access and archive publication capabilities."
             );
             Ok(5)
         }

@@ -51,7 +51,7 @@ def main():
     parent.mkdir(parents=True, exist_ok=True)
     out = Path(tempfile.mkdtemp(prefix=prefix + '-', dir=parent))
     records = []
-    for model in (['JobReplay'] if args.suite == 'liveness' else ['ArchiveCommit', 'JobReplay', 'PlanApproval']):
+    for model in (['JobReplay'] if args.suite == 'liveness' else ['ArchiveCommit', 'JobReplay', 'PlanApproval', 'GitPublish']):
         spec = ROOT / 'spec' / (model + '.tla')
         config = ROOT / 'spec/config' / f'{model}-{args.suite}.cfg'
         command = ['java', '-Xmx1g', '-cp', str(jar.resolve()), 'tlc2.TLC',
@@ -69,7 +69,8 @@ def main():
             status = 'incomplete'
         regression = args.suite == 'regression'
         expected = {'ArchiveCommit': 'CompletePointIsClosed', 'JobReplay': 'ReplayIsConsistent',
-                    'PlanApproval': 'ApprovalMatchesExecution'}[model]
+                    'PlanApproval': 'ApprovalMatchesExecution',
+                    'GitPublish': 'AcknowledgedPushIsDurable'}[model]
         if regression and code == 12 and f'Invariant {expected} is violated' in output:
             status = 'counterexample'
         log = out / (model + '.log')

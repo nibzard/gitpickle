@@ -33,7 +33,9 @@ class CloudTests(unittest.TestCase):
 
     def command(self, operation, *args):
         if operation == 'capabilities':
-            return json.dumps(dict(conditional_create=self.supported, completed_write_visibility=True)).encode()
+            return json.dumps(dict(conditional_create=self.supported and not getattr(self, 'b2', False),
+                archive_publication='content-addressed-v1' if self.supported and getattr(self, 'b2', False) else None,
+                completed_write_visibility=True)).encode()
         if operation == 'download':
             for key, data in self.remote.items():
                 if not key.startswith('.probes/'):
@@ -50,6 +52,49 @@ class CloudTests(unittest.TestCase):
 
     def cloud(self):
         return CloudArchive(self.root, 'unused', command=self.command)
+
+    def test_hosted_push_remote_failure_and_disk_loss(self):
+        import time
+        import gitpickle_hosted as hosted
+        from gitpickle_hosting import Hosting
+        from gitpickle_plans import Grant, Plans, Policy, PolicyStore, Principal
+        import gitpickle_perf as fixtures
+        from gitpickle_receive import packet
+        source = self.base / 'push-source'
+        fixtures.make_repo(source, 2, 1, 32)
+        tip = a.git(source, 'rev-parse', 'refs/heads/main').strip()
+        pack = a.git(source, 'pack-objects', '--stdout', '--all')
+        request = packet(b'0' * 40 + b' ' + tip + b' refs/heads/main\0report-status side-band-64k\n') + b'0000' + pack
+        policy = PolicyStore(Policy(1, tuple(Grant('owner', permission, frozenset({'repo'}), int(time.time()) + 3600)
+                            for permission in ('git_read', 'git_write', 'hosting_manage')), frozenset(), str(self.base)))
+        principal = Principal('owner')
+        with self.cloud() as cloud, Plans(self.root, policy) as plans:
+            hosting = Hosting(plans, 'https://example.invalid/git')
+            hosted.change(hosting, principal, 'repo', 'create', None)
+            before = hosted.head(self.root, 'repo')
+            command = cloud.command
+            def fail_payload(operation, *arguments):
+                if operation == 'put' and '/packs/' in arguments[0]:
+                    raise JobError('storage_unavailable')
+                return command(operation, *arguments)
+            with patch.object(cloud, 'command', fail_payload):
+                with self.assertRaises(JobError):
+                    hosted.receive(hosting, principal, 'repo', request)
+            self.assertEqual(before, hosted.head(self.root, 'repo'))
+            result = hosted.receive(hosting, principal, 'repo', request)
+            self.assertIn(b'ok refs/heads/main', result)
+            committed = hosted.head(self.root, 'repo')
+            self.assertIn(committed, self.remote)
+        shutil.rmtree(self.root)
+        shutil.rmtree(source)
+        self.root.mkdir()
+        with self.cloud(), Plans(self.root, policy) as plans:
+            hosting = Hosting(plans, 'https://example.invalid/git')
+            self.assertEqual('hosted', hosting.describe(principal, 'repo')['mode'])
+            self.assertEqual(result, hosted.receive(hosting, principal, 'repo', request))
+            with hosting.generation(principal, 'repo') as (repo, _):
+                self.assertEqual(tip, a.git(repo, 'rev-parse', 'refs/heads/main').strip())
+                a.git(repo, 'fsck', '--full', '--strict')
 
     def test_remote_acceptance_capture_and_rebuild_without_original_disk(self):
         source = self.base / 'source'
@@ -98,6 +143,29 @@ class CloudTests(unittest.TestCase):
             with self.cloud():
                 pass
         self.assertEqual({}, self.remote)
+
+
+class B2CloudTests(CloudTests):
+    """Exercise the complete cloud workflow with no conditional-write capability."""
+    def setUp(self):
+        super().setUp()
+        self.b2 = True
+        location = json.loads(os.environ['GITPICKLE_STORAGE_CONFIG'])
+        location['provider'] = 'b2'
+        os.environ['GITPICKLE_STORAGE_CONFIG'] = json.dumps(location)
+
+    def test_recovered_archive_requires_fencing_before_other_server_writes(self):
+        with self.cloud(), Writer(self.root, server_id='original') as writer:
+            self.assertTrue(writer.writable)
+        shutil.rmtree(self.root)
+        self.root.mkdir()
+        with self.cloud(), Writer(self.root, server_id='replacement') as writer:
+            self.assertFalse(writer.writable)
+            with self.assertRaises(PermissionError):
+                with writer.mutation('repo'):
+                    pass
+            writer.takeover(writer.owner_key, 'Old credentials revoked by operator', writer.reconcile())
+            self.assertTrue(writer.writable)
 
 
 if __name__ == '__main__':

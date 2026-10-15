@@ -39,7 +39,8 @@ def measure(store, operation):
             started[name[7:]] = time.perf_counter()
         elif name.startswith('after_') and name[6:] in started:
             stage = name[6:]
-            metrics['stages_seconds'][stage] = time.perf_counter() - started[stage]
+            metrics['stages_seconds'][stage] = (metrics['stages_seconds'].get(stage, 0)
+                                                + time.perf_counter() - started[stage])
 
     start = time.perf_counter()
     with patch.object(a, 'put', write), patch.object(a, 'read', fetch), patch.object(a, 'boundary', boundary):

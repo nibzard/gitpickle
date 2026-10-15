@@ -82,16 +82,64 @@ It never substitutes a read followed by an unconditional write.
 
 B2's PUT and completion documentation does not establish atomic conditional writes.
 The adapter rejects `Absent` and `Matches` for those operations.
-B2 therefore cannot currently pass the immutable publication prerequisite in the shared harness.
-Read, inventory, unconditional write, and unconditional multipart operations are implemented and tested locally.
-Do not enable B2 as an immutable archive writer until the missing guarantee is established.
-Provider verification must record this limitation, or justify and test a different publication mechanism.
+The conditional-write harness therefore rejects B2 before mutation.
+Archive publication uses the separate content-addressed protocol below.
+Read, inventory, unconditional write, and unconditional multipart operations remain available.
+No conditional capability is enabled by this protocol.
 
 `versioning = false` means this port cannot inspect or retrieve historical versions.
 It does not assert that AWS or B2 lacks bucket versioning.
 `retention = Available` never means retention is configured or enforced.
 No adapter configures retention, retrieves historical versions, deletes objects, or fences another writer.
 Takeover still requires the archive's explicit fencing and reconciliation procedure.
+
+## B2 archive publication
+
+The archive helper reports `archive_publication: content-addressed-v1` for B2.
+This is an application protocol, not a provider conditional-write capability.
+The cloud coordinator requires this exact protocol or conditional creation, plus completed-write visibility.
+R2 and S3 keep their conditional publication path.
+
+B2 stores each logical archive object at:
+
+```text
+<prefix>.gitpickle-publication/v1/<logical-key>/<sha256-of-exact-bytes>
+```
+
+For example, `archive.json` also receives a content digest in its physical name.
+There is no mutable pointer or separate commit marker for this mapping.
+Existing manifest references remain logical archive keys.
+The physical key must fit the storage port's 1,024-byte key limit.
+The helper uses a single PUT with the existing 5 GiB limit.
+It does not use multipart completion for archive publication.
+
+The writer checks legacy bytes and lists the logical object's physical prefix before publication.
+An existing different digest stops publication with a conflict.
+It checks existing bytes before any upload and never repairs corruption by overwriting it.
+New bytes use unconditional PUT at the name derived from those exact bytes.
+Different content has a different name; retries can only write identical content at that name.
+This relies on the archive's SHA-256 collision-resistance assumption.
+
+A successful or ambiguous PUT requires remote byte-for-byte readback before acknowledgment or local visibility.
+A failed readback remains a failure. Local cache bytes cannot resolve it.
+A later attempt reconciles the same name before uploading again.
+There are no hidden retries. The caller controls the retry budget.
+Repeated uploads can create provider versions of identical bytes; recovery does not depend on version APIs.
+This uses the documented [B2 PUT operation](https://www.backblaze.com/apidocs/s3-put-object).
+It does not infer conditional support from the S3 request shape.
+
+Recovery lists the archive prefix, verifies each physical digest, and materializes the logical keys.
+It accepts existing direct-layout objects too, but rejects different bytes for the same logical key.
+Unknown mapping versions and malformed mapping names fail closed.
+The normal archive reader then validates dependencies, publication chains, and ownership chains.
+An interrupted upload needs no local mapping database for recovery.
+Unreferenced objects remain retained; no new cleanup or deletion permission is required.
+
+One active writer, local process locking, and per-repository serialization remain mandatory.
+A replacement server stays read-only until explicit external fencing and reconciliation complete.
+Listing before writing is not a distributed lock.
+Concurrent conflicting records remain separate objects and cause recovery or chain validation to stop.
+The protocol does not provide automatic failover, multiple-writer safety, or enforced provider retention.
 
 ## Integrity, multipart staging, and retries
 
@@ -150,9 +198,16 @@ They also check corrupt readback, upload ownership, abort safety, and provider c
 The shared harness passes S3's declared operations and reports R2's missing conditional multipart capability.
 It rejects B2's missing conditional creation before mutation.
 Separate tests cover unconditional multipart operations for R2 and B2.
+`tests/publication.rs` checks B2 publication using its declared capabilities and deterministic faults.
+It covers lost responses, failed readback, retry reconciliation, corruption, conflicting identities, and cache-free reconstruction.
+Provider wire tests verify unconditional digest names and remote readback through the B2 adapter.
+Python cloud tests cover capture, hosted acknowledgment, disk loss, and fenced takeover without conditional creation.
+Run those tests with `PYTHONPATH=tools python3 -m unittest tools.test_gitpickle_cloud tools.test_gitpickle_writer`.
+T054 must exercise this publication protocol on live B2, including these failure and recovery cases.
 
 No live provider tests run as part of this suite.
-T007 owns live R2 evidence. T053 supplies final S3/B2 access, and T054 owns those live checks.
+T007 records [live R2 evidence](r2-conformance.md), including its unsupported operations.
+T053 supplies final S3/B2 access, and T054 owns those live checks.
 Use the isolation and cleanup procedure in [the storage contract](storage-contract.md) before any live mutation.
 Save generated reports under ignored `tests/results/storage/` or `tests/results/storage-wire/`.
 Local test success does not satisfy those provider verification gates.

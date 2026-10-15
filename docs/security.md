@@ -7,7 +7,8 @@ to that user and have mode `0700`. The policy file must have mode `0600`.
 The service rejects symlinks in state paths. It sets the process umask to `0077`.
 
 The listener defaults to `127.0.0.1` and a free port. Startup prints that port.
-Non-loopback addresses are rejected. Use an authenticated SSH tunnel for remote
+Non-loopback addresses are rejected except for explicit container mode, which permits `0.0.0.0`.
+Keep container host ports private; see [deployment](deployment.md). Use an authenticated SSH tunnel for remote
 management. Public transport and TLS termination are outside this listener.
 
 ## Configuration
@@ -47,7 +48,11 @@ Send `POST /v1/management` with an `Authorization: Bearer` header and a JSON bod
 {"operation": "status", "arguments": {"repository": "github-123"}}
 ```
 
-The service supports these exact argument sets:
+After authenticated `hello` negotiation, include `X-GitPickle-Management-Version: 1` and `X-GitPickle-Result-Version: 1`.
+Missing or unsupported versions are rejected before command dispatch.
+
+The core restore service supports these exact argument sets. Enabled workflow and agent operations add negotiated capabilities.
+See [the CLI workflow](cli-workflow.md) and [MCP tools](mcp.md) for those operations.
 
 | Operation | Arguments |
 | --- | --- |
@@ -92,7 +97,8 @@ it does not implement a general URL-fetching interface.
 
 Git children run in separate process groups. Limits are 3,600 seconds of elapsed
 and CPU time, 8 GiB of address space, 16 GiB per file, 256 descriptors, and 64 MiB
-per output stream. The runner checks output growth during execution. It kills
+per captured diagnostic stream. File-backed Git responses and pack files use the 16 GiB file limit.
+The runner checks output growth during execution. It kills
 remaining descendants on completion or failure. Limit failures return redacted
 process errors. These bounds can reject large repositories; a failed capture
 must never be reported as complete.
@@ -111,3 +117,14 @@ and revocation, actor spoofing, malicious Git hooks and configuration, source
 schemes, private DNS addresses, traversal, symlinks, process limits, and secret
 redaction. Generated resources use `LOOPER_RESOURCE_PREFIX`. Fixtures and reports
 stay in ignored directories. These checks do not claim an external security audit.
+
+## Git access
+
+Git hosting requires explicit enablement and repository-scoped `git_read` grants.
+The trusted HTTPS proxy forwards `/git/`; management routes remain private.
+Git Basic authentication maps the password token to the runtime principal.
+The gateway reconstructs only the newest complete committed generation.
+Protected mirrors reject pushes and LFS uploads. Explicit hosted mode requires separate `git_write` grants.
+Mode changes require `hosting_manage`. Native success remains gated on durable archive publication.
+LFS upload success requires digest validation and durable storage. Missing required LFS content rejects a push.
+See [Git hosting](git-hosting.md) for tested features, transfer limits, and deployment boundaries.

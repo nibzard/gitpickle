@@ -18,6 +18,7 @@ import sys
 import tempfile
 import threading
 import time
+import uuid
 
 ROOT = Path(__file__).resolve().parents[1]
 VERSION = 1
@@ -657,7 +658,8 @@ def validate_result(result):
             require(sample_value['correctness'], SCHEMA['$defs']['sample']['properties']['correctness'])
             if (sample_value['correctness']['outcome'] != 'passed'
                     or sample_value['correctness']['lost_acknowledged_updates']
-                    or sample_value['correctness']['missing_dependencies']):
+                    or sample_value['correctness']['missing_dependencies']
+                    or sample_value['correctness'].get('unauthorized_writes', 0)):
                 raise ValueError('Failed sample correctness')
             for key in ('elapsed_ms', 'process_tree_peak_rss_bytes', 'cpu_seconds', 'staging_cache_peak_disk_bytes',
                         'uploaded_bytes', 'downloaded_bytes', 'resource_samples', 'retained_bytes',
@@ -722,7 +724,12 @@ def compare(candidate, baseline):
             gate = 'warn'
         if gate == 'pass' and min(candidate['repetitions'], baseline['repetitions']) < 30:
             gate = 'exploratory'
-        comparisons.append(dict(scenario=row['scenario'], baseline_ms=previous, candidate_ms=current,
+        # Numeric budgets remain advisory until the gate runner validates noise
+        # and a separate confirming run. Keep the provisional signal visible.
+        provisional_block = gate == 'block'
+        if provisional_block:
+            gate = 'warn'
+        comparisons.append(dict(provisional_regression=provisional_block, scenario=row['scenario'], baseline_ms=previous, candidate_ms=current,
                                 delta_percent=100*delta, gate=gate, storage_request_delta=request_delta,
                                 resource_delta=resource_delta))
     return comparisons
@@ -757,7 +764,7 @@ def bench(args):
     output = result_path(args.output)
     if output.exists():
         raise ValueError(f'Result already exists: {output}')
-    result = dict(schema_version=VERSION, record_kind='measured', status='incomplete',
+    result = dict(run_id=uuid.uuid4().hex, schema_version=VERSION, record_kind='measured', status='incomplete',
                   scope='native-git-local-storage-reference', commit=git(ROOT, 'rev-parse', 'HEAD').decode().strip(),
                   source_dirty=bool(git(ROOT, 'status', '--porcelain', '--untracked-files=no')),
                   harness_sha256=digest(Path(__file__)),

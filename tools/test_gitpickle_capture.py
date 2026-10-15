@@ -308,6 +308,28 @@ class CaptureTests(unittest.TestCase):
             self.capture()
         self.assertEqual([], a.inventory(self.store, 'r'))
 
+    def test_initial_capture_with_single_object_above_stdout_limit(self):
+        import random
+        random_bytes = random.Random(52).randbytes
+        blob_file = self.root / 'large-blob'
+        with blob_file.open('wb') as stream:
+            for _ in range(65):
+                stream.write(random_bytes(1024 * 1024))
+        with blob_file.open('rb') as stream:
+            blob = a.git(self.repo, 'hash-object', '-w', '--stdin', data=stream).decode().strip()
+        tree = a.git(self.repo, 'mktree', data=f'100644 blob {blob}\tlarge\n'.encode()).decode().strip()
+        commit = a.git(self.repo, '-c', 'user.name=Test', '-c', 'user.email=test@example.invalid',
+                       'commit-tree', tree, data=b'large initial capture\n').decode().strip()
+        a.git(self.repo, 'update-ref', 'refs/heads/main', commit)
+        point = self.capture()
+        manifest = a.read(self.store, point, 'point')
+        self.assertGreater(max(pack['size'] for pack in manifest['packs']), 64 * 1024 * 1024)
+        shutil.rmtree(self.repo)
+        restored = self.root / 'large-restored.git'
+        a.restore(self.store, point, restored)
+        self.assertEqual(blob.encode(), a.git(restored, 'rev-parse', 'main:large').strip())
+        self.assertEqual(65 * 1024 * 1024, int(a.git(restored, 'cat-file', '-s', blob)))
+
     def test_lfs_crashes_lost_response_and_no_change(self):
         lfs = self.root / 'lfs'
         lfs.mkdir()

@@ -1,0 +1,63 @@
+{
+  "schema_version": 1,
+  "task_id": "T035",
+  "date": "2026-10-15",
+  "scope": "Bounded native Git publication boundary; daemon hosting remains read-only",
+  "git": "git version 2.47.1",
+  "checks": [
+    {
+      "command": "cargo xtask check",
+      "status": "passed",
+      "python_tests": 238,
+      "log": "tests/results/publication/check.log"
+    },
+    {
+      "command": "python3 -B -m unittest discover -s tools -p test_gitpickle_publish.py -v",
+      "status": "passed",
+      "tests": 6,
+      "log": "tests/results/publication/focused.log"
+    },
+    {
+      "command": "python3 -B -m unittest discover -s tools -p test_gitpickle_engine.py -v",
+      "status": "passed",
+      "tests": 2,
+      "log": "tests/results/publication/native-engine.log"
+    }
+  ],
+  "model_evidence": [
+    "spec/evidence/git-publish-pr.json",
+    "spec/evidence/git-publish-nightly.json",
+    "spec/evidence/git-publish-regression.json"
+  ],
+  "verified_source_unchanged": true,
+  "initial_check": {
+    "status": "failed",
+    "reason": "Existing 404-repository scheduling test exceeded its 60-second limit during concurrent validation.",
+    "log": "tests/results/publication/check-initial.log",
+    "resolution": "The isolated test passed in 18.94 seconds. The complete suite then passed without concurrent probes."
+  },
+  "process_exit_boundaries": [
+    "staged",
+    "native_complete",
+    "before_payload",
+    "after_payload",
+    "before_manifest",
+    "after_manifest",
+    "before_publication",
+    "after_publication",
+    "before_reply",
+    "before_final",
+    "after_final"
+  ],
+  "remaining_tasks": {
+    "T036": "Product integration, repository modes, authorization, provider publication, durable LFS and operation reconciliation.",
+    "T037": "Full writable compatibility and fault matrix.",
+    "T054": "Actual S3 and B2 provider evidence.",
+    "T055": "Fresh deployment validation."
+  },
+  "source_sha256": {
+    "spec/GitPublish.tla": "981e4dfbc0d14c19e75cdf777c413792934fec9832d3abf810b3b95cb24ab020",
+    "tools/gitpickle_publish_spike.py": "9eb0c516640a9d1af0af677b26a41e1e4392c4aedac8aa78e01cc4f93beab2e8",
+    "tools/test_gitpickle_publish.py": "c94de2690df45227acb019beb81c8f960243c4153d56236e858ea0562cc323ba"
+  }
+}

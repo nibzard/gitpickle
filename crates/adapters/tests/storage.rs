@@ -221,3 +221,28 @@ fn digest_is_sha256_and_keys_reject_traversal() {
         assert_eq!(ObjectKey::new(invalid), Err(StorageError::InvalidInput));
     }
 }
+
+#[test]
+fn nested_disposable_scopes_reject_unsafe_bases_and_multipart_collisions() {
+    for base in [
+        "",
+        "archive",
+        "../archive/",
+        "archive//",
+        "archive/../test/",
+    ] {
+        assert!(TestScope::within(base, "looper_test", "run").is_err());
+    }
+    let scope = TestScope::within("development/", "looper_test", "run").unwrap();
+    assert_eq!(scope.prefix(), "development/looper_test/conformance/run/");
+    let mut store = Emulator::default();
+    let key = ObjectKey::new(format!("{}unconditional-multipart", scope.prefix())).unwrap();
+    let original = put_immutable(&mut store, &key, b"existing", 1).unwrap();
+    let before = store.calls.len();
+    assert_eq!(
+        probe_unconditional_multipart(&mut store, &scope),
+        Err(StorageError::Integrity)
+    );
+    assert_eq!(&store.calls[before..], &[Operation::Get]);
+    assert_eq!(store.get(&key).unwrap().revision, original);
+}

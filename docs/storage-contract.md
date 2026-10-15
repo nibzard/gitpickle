@@ -26,6 +26,13 @@ It reconciles unknown outcomes through a read and an archive digest check.
 It also checks an existing object after a conditional conflict.
 Different content causes an integrity error. It never overwrites an existing object.
 Exhausted attempts return an unknown outcome, which does not prove that storage lacks the object.
+`storage::publication::publish` supplies a separate content-addressed archive protocol for B2.
+It does not implement `Condition::Absent` or change the storage port's capability declarations.
+It writes only names derived from the exact bytes and requires remote readback before acknowledgment.
+Recovery verifies the mapping and rejects conflicting logical objects.
+The existing single-writer and external fencing contract applies.
+See [B2 archive publication](storage-providers.md#b2-archive-publication) for the layout and failure behavior.
+
 A lost multipart completion response also requires readback before any new upload.
 A lost initiation response can leave an unreachable upload. Provider lifecycle cleanup requires separate authorization.
 
@@ -34,6 +41,8 @@ A lost initiation response can leave an unreachable upload. Provider lifecycle c
 Adapters declare completed-write visibility, conditional creation, conditional replacement, and multipart support.
 Conditional multipart creation and replacement have separate declarations.
 The harness skips conditional multipart checks when that capability is unavailable and reports the omission.
+`probe_unconditional_multipart` separately tests visibility, completion, digest readback, and abort in an exclusively owned disposable scope.
+It uses unconditional completion and does not establish immutable publication safety.
 They declare versioning and provider retention separately.
 Retention distinguishes unsupported, available, and enforced for the configured scope.
 The conformance report does not certify retention or versioning.
@@ -67,6 +76,8 @@ They also exercise missing multipart parts, part retries, invalid completion ord
 6. Let the registered cleanup remove only owned test resources.
 
 The harness uses `<resource-prefix>/conformance/<run>/` and rejects an occupied prefix.
+`TestScope::within` nests that scope inside an authorized base prefix.
+See [R2 verification](r2-conformance.md) for the live runner, cleanup, and capability evidence.
 All initial writes require conditional creation. A collision fails without replacing the existing object.
 Conditional replacement uses only a revision from a successful harness creation.
 The harness never deletes objects or changes bucket configuration.
@@ -76,7 +87,8 @@ Multipart checks use a 5 MiB first part and a short final part.
 Listing checks use bounded pages and a bounded traversal.
 Empty intermediate pages are valid. Repeated cursors, duplicate keys, and keys outside the prefix fail.
 Unsupported optional operations appear in the report.
-Missing completed-write visibility or conditional creation rejects the run before mutation.
+Missing completed-write visibility or conditional creation rejects the conditional conformance run before mutation.
+B2 archive publication has separate deterministic capability, failure, and recovery tests; this harness still rejects unsupported conditions.
 A compatible endpoint alone does not establish conformance.
 T006 implements provider adapters. T007 records live R2 evidence. T054 records live S3 and B2 evidence.
 Local emulator results do not establish live provider behavior.

@@ -14,7 +14,11 @@ Preserve your Git repositories in your own storage. Recover them without GitHub 
 - **Git you can use.** Recover a bare repository or export a full Git bundle.
 
 **In development.** Guided protection, durable capture jobs, and storage-only recovery are implemented.
-Hosting remains under development. GitPickle is a working name pending naming clearance.
+Authenticated Git hosting supports protected mirrors and explicit hosted mode with durable pushes.
+Bounded local tests and R2 recovery checks support these development claims.
+See the [implementation acceptance record](docs/implementation-acceptance.md) for scope and final gates.
+GitPickle is a working name pending naming clearance. M3 and public release acceptance remain incomplete.
+See the [operator guide](docs/operator.md), [compatibility matrix](docs/compatibility.md), and [release evidence](docs/release/README.md).
 See [current behavior and limits](docs/cli-workflow.md) before configuring protection.
 
 ## Get started
@@ -49,6 +53,7 @@ These examples assume `gitpickle` is on your `PATH` and the client can reach you
 For a source build, use `./target/debug/gitpickle`.
 
 The workflow covers storage setup, authorization, capture jobs, retries, and automation.
+Use the [optional terminal interface](docs/tui.md) to search the portfolio and review operations with the keyboard.
 Without cloud configuration, the daemon uses a filesystem archive.
 Keep an independent archive copy to protect against loss of that machine.
 
@@ -93,7 +98,8 @@ A successful upload does not establish verified recovery.
 [Status and recovery evidence](docs/status.md) explains what each result proves and which components it covers.
 
 R2 and S3 publication use storage adapters with remote readback.
-B2 currently supports read-only recovery; durable publication is unavailable.
+B2 supports content-addressed publication and recovery under the single-writer contract.
+Live B2 acceptance remains pending T053/T054; see [the publication protocol](docs/storage-providers.md#b2-archive-publication).
 Live provider validation remains separate from local tests.
 See [storage providers](docs/storage-providers.md) for configuration and capability limits.
 
@@ -127,3 +133,8 @@ For more detail:
 </details>
 
 *In a pickle? Git it back.* 🥒
+
+Deployment bundles, systemd installation, container recipes, dependency licenses,
+and artifact checks are documented in [deployment](docs/deployment.md).
+
+Use [guided installation](docs/setup.md) to review local or SSH installation and generate private Coolify recipes.

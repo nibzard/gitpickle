@@ -11,7 +11,7 @@
 /tests/results/
 # Python benchmark caches and static evidence.
 **/__pycache__/
-# Storage conformance evidence (never archive source data).
+# Storage conformance evidence, including r2-conformance.json (no archive source data).
 /tests/results/storage/
 # Generated adapter wire reports and local transport traces.
 /tests/results/storage-wire/
@@ -70,3 +70,67 @@
 /mcp-config-preview*.json
 /fixtures/generated/mcp/
 /tests/results/mcp/
+
+# Nonsecret provider preflight reports and disposable resource receipts.
+/tests/results/resources/
+# Cloudflare CLI account cache generated during resource preflight.
+/.cloudflare/
+
+# Bounded Git engine probes, cloned fixtures, and raw comparison reports.
+/fixtures/generated/engine-spike/
+/tests/results/git-engine/
+
+# Portfolio recovery reports and compiled process network guards.
+/tests/results/recovery/
+
+# Generated Git HTTPS fixtures, TLS keys, clones, and compatibility reports.
+/fixtures/generated/hosting/
+/tests/results/hosting/
+
+# Reproducible deployment bundles, image exports, and private runtime inputs.
+/dist/
+/deploy/*.env
+/deploy/policy.json
+# Local Git/R2 deployment reports, clones, and private TLS fixtures.
+/tests/results/deployment/
+/fixtures/generated/deployment/
+
+# Reviewed installation plans and private generated deployment recipes.
+/deploy/generated/
+/fixtures/generated/setup/
+/tests/results/setup/
+
+# Optional terminal interface benchmark reports and PTY evidence.
+/perf/results/tui/
+/tests/results/tui/
+
+# Validation source exports, paired runs, and interrupted gate staging.
+/.cache/gates/
+/tests/results/gates/
+/perf/results/gates/
+
+# Disposable publication workspaces and native protocol probe evidence.
+/fixtures/generated/publication/
+/tests/results/publication/
+
+# Generated release review receipts and documentation verification reports.
+/tests/results/release/
+
+# Large-transfer fixtures share the disposable hosting test directory.
+/fixtures/generated/hosting/**/large-*
+
+# Hosted publication, retry receipts, and disposable push fixtures.
+/tests/results/hosted/
+/fixtures/generated/hosted/
+
+# Integrated implementation acceptance reports; raw evidence stays outside the checkout.
+/tests/results/implementation/
+
+# Private usability recordings, notes, and copied evidence templates.
+/tests/results/usability/
+
+# Disposable B2 publication and recovery evidence.
+/tests/results/storage-publication/
+
+# Guided setup stages credentials; never track these runtime inputs.
+**/runtime-inputs.json

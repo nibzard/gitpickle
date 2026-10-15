@@ -30,6 +30,9 @@ class WorkflowTests(unittest.TestCase):
             prefix=os.environ.get('LOOPER_RESOURCE_PREFIX', 'workflow') + '-')
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
+        # Give the fixture its own Git boundary, without an origin remote.
+        # Otherwise native Git can inherit the enclosing project's remote.
+        a.git(self.root, 'init', '--template=', '--initial-branch=main')
         self.archive = self.root / 'archive'
         a.initialize(self.archive, 'workflow-test')
         self.rows = {'1': dict(id=1, alias='alice/one', has_wiki=False),
@@ -90,6 +93,27 @@ class WorkflowTests(unittest.TestCase):
         finally:
             os.chdir(before)
         return code, output.getvalue(), diagnostics.getvalue()
+
+    def test_hosting_mode_commands_require_explicit_current_head(self):
+        from gitpickle_hosting import Hosting
+        grants = tuple(Grant('owner', permission, frozenset({'github-1'}), 2**62)
+                       for permission in ('git_read', 'git_write', 'hosting_manage'))
+        self.policies.replace(Policy(2, grants, frozenset(), str(self.root)))
+        self.listener.application.hosting = Hosting(self.plans, 'https://example.invalid/git')
+        code, output, _ = self.command(['hosting', '--repository', 'github-1', '--action', 'create', '--json'])
+        self.assertEqual(0, code, output)
+        result = self.client.call('hosting_status', dict(repository='github-1'))
+        self.assertEqual('hosted', result['mode'])
+        code, _, _ = self.command(['hosting', '--repository', 'github-1', '--action', 'resume', '--json'])
+        self.assertNotEqual(0, code)
+        code, _, _ = self.command(['hosting', '--repository', 'github-1', '--action', 'resume',
+                                   '--expected-head', result['head'], '--preview', '--json'])
+        self.assertNotEqual(0, code)
+        self.assertEqual('hosted', self.client.call('hosting_status', dict(repository='github-1'))['mode'])
+        code, output, _ = self.command(['hosting', '--repository', 'github-1', '--action', 'resume',
+                                       '--expected-head', result['head'], '--json'])
+        self.assertEqual(0, code, output)
+        self.assertEqual('protected_mirror', self.client.call('hosting_status', dict(repository='github-1'))['mode'])
 
     def test_resumption_probes_and_idempotent_initial_jobs(self):
         preview = self.preview(all=True)

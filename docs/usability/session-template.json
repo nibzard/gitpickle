@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "evidence_kind": "participant-observation",
+  "status": "not-run",
+  "participant_code": null,
+  "consent_reference": null,
+  "date_utc": null,
+  "moderator": null,
+  "candidate_commit": null,
+  "binary_sha256": null,
+  "platform_and_profile": null,
+  "prior_experience_and_exposure": null,
+  "prepared_environment_and_boundaries": [],
+  "fixture_checks": [],
+  "interface_order": [],
+  "terminal_dimensions": null,
+  "scenarios": {
+    "S1": {"elapsed_seconds": null, "configuration_edits": null, "assistance": [], "outcome": null, "evidence": []},
+    "S2": {"elapsed_seconds": null, "first_judgment": null, "assistance": [], "outcome": null, "evidence": []},
+    "S3": {"elapsed_seconds": null, "destination_absent_before": null, "point": null, "approved_destination": null, "integrity": null, "sentinel_unchanged": null, "assistance": [], "outcome": null, "evidence": []},
+    "S4": {"elapsed_seconds": null, "server_offline_evidence": null, "integrity": null, "assistance": [], "outcome": null, "evidence": []},
+    "S5": {"elapsed_seconds": null, "navigation_errors": null, "inspection_only": null, "assistance": [], "outcome": null, "evidence": []}
+  },
+  "terminology": {
+    "configured": {"verbatim": null, "correct_unaided": null, "evidence": []},
+    "verified": {"verbatim": null, "correct_unaided": null, "evidence": []},
+    "fresh": {"verbatim": null, "correct_unaided": null, "evidence": []}
+  },
+  "combined_three_outcomes_pass": null,
+  "interruptions_and_classification": [],
+  "findings": [],
+  "reviewer": null
+}

@@ -8,7 +8,8 @@ Install Git Large File Storage (LFS) to capture required LFS data.
 
 Run the daemon as an unprivileged user. Use a private archive directory and a private policy file.
 The daemon initializes an empty directory. Existing archives retain their writer identity and takeover rules.
-Remote installation and Coolify setup belong to the deployment workflow in T027.
+Use [guided setup](setup.md) for local installation, SSH installation, and private Coolify deployment.
+Without a configured daemon, interactive `protect github` opens that setup guide.
 
 The policy schema remains the schema in [security.md](security.md).
 Each grant contains an actor, a permission, exact repository IDs, and an expiry in Unix seconds.

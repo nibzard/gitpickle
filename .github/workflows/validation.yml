@@ -1,0 +1,139 @@
+name: Validation
+on:
+  pull_request:
+  push:
+    branches: [main]
+  schedule:
+    - cron: '23 2 * * *'
+  workflow_dispatch:
+    inputs:
+      suite:
+        type: choice
+        options: [pr, nightly, release]
+        default: pr
+permissions:
+  contents: read
+jobs:
+  local:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 60
+    env:
+      LOOPER_RESOURCE_PREFIX: ci-${{ github.run_id }}-${{ github.run_attempt }}
+      PYTHONDONTWRITEBYTECODE: '1'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - run: rustup show
+      - run: git lfs install --skip-repo
+      - name: Run local acceptance
+        env:
+          SUITE: ${{ github.event_name == 'schedule' && 'nightly' || inputs.suite || 'pr' }}
+        run: |
+          code=0
+          cargo xtask validate --suite "$SUITE" --evidence "$RUNNER_TEMP/evidence" || code=$?
+          # Pending external checks are resolved by the final aggregate job.
+          if test "$code" -eq 2 && test "$SUITE" != pr; then exit 0; fi
+          exit "$code"
+      - name: Compare both clean baselines
+        if: github.event_name == 'pull_request'
+        env:
+          MERGE_BASE: ${{ github.event.pull_request.base.sha }}
+          CANDIDATE: ${{ github.event.pull_request.head.sha }}
+          RELEASE_BASELINE: ${{ vars.GITPICKLE_RELEASE_BASELINE }}
+        run: |
+          test -n "$RELEASE_BASELINE"
+          cargo xtask compare-revisions --candidate "$CANDIDATE" --merge-base "$MERGE_BASE" --release-baseline "$RELEASE_BASELINE" --repetitions 2 --evidence "$RUNNER_TEMP/evidence"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: local-evidence
+          path: ${{ runner.temp }}/evidence
+          retention-days: 90
+          if-no-files-found: error
+  final:
+    if: github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.suite != 'pr')
+    # This runner is allocated only in T051/T055. It never runs pull-request code with credentials.
+    runs-on: [self-hosted, gitpickle-pve2]
+    environment: ${{ matrix.stage }}
+    timeout-minutes: 1440
+    strategy:
+      fail-fast: false
+      matrix:
+        stage: [full-size-performance, s3-canary, b2-canary, fresh-vm-deployment, release-review-and-recovery, r2-canary]
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run isolated final stage
+        env:
+          STAGE: ${{ matrix.stage }}
+          SUITE: ${{ inputs.suite || 'nightly' }}
+          LOOPER_RESOURCE_PREFIX: final-${{ github.run_id }}-${{ github.run_attempt }}-${{ matrix.stage }}
+          GITPICKLE_STORAGE_CONFIG: ${{ secrets.STORAGE_CONFIG }}
+          GITPICKLE_STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          GITPICKLE_STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+        run: |
+          export LOOPER_RESOURCE_CLEANUP_FILE="$RUNNER_TEMP/cleanup-$STAGE.sh"
+          export LOOPER_ARTIFACT_DIR="$RUNNER_TEMP/evidence"
+          mkdir -p "$LOOPER_ARTIFACT_DIR"
+          touch "$LOOPER_RESOURCE_CLEANUP_FILE"
+          python3 -B tools/gitpickle_gates.py stage --name "$STAGE" --suite release --stage-config "/etc/gitpickle-validation/$STAGE.json" --evidence "$LOOPER_ARTIFACT_DIR"
+      - name: Clean owned resources
+        if: always()
+        env:
+          STAGE: ${{ matrix.stage }}
+          GITPICKLE_STORAGE_CONFIG: ${{ secrets.STORAGE_CONFIG }}
+          GITPICKLE_STORAGE_ACCESS_KEY: ${{ secrets.STORAGE_ACCESS_KEY }}
+          GITPICKLE_STORAGE_SECRET_KEY: ${{ secrets.STORAGE_SECRET_KEY }}
+        run: |
+          if test -f "$RUNNER_TEMP/cleanup-$STAGE.sh"; then
+            bash "$RUNNER_TEMP/cleanup-$STAGE.sh"
+          fi
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: final-${{ matrix.stage }}
+          path: ${{ runner.temp }}/evidence
+          if-no-files-found: error
+      - name: Archive evidence independently
+        if: always()
+        env:
+          EVIDENCE_DESTINATION: ${{ secrets.EVIDENCE_DESTINATION }}
+          AWS_ACCESS_KEY_ID: ${{ secrets.EVIDENCE_ACCESS_KEY }}
+          AWS_SECRET_ACCESS_KEY: ${{ secrets.EVIDENCE_SECRET_KEY }}
+          AWS_DEFAULT_REGION: ${{ vars.EVIDENCE_REGION }}
+          AWS_ENDPOINT_URL: ${{ vars.EVIDENCE_ENDPOINT }}
+          STAGE: ${{ matrix.stage }}
+        run: |
+          test -n "$EVIDENCE_DESTINATION"
+          aws s3 cp "$RUNNER_TEMP/evidence" "$EVIDENCE_DESTINATION/$GITHUB_RUN_ID/$GITHUB_RUN_ATTEMPT/$STAGE/" --recursive --only-show-errors
+  acceptance:
+    if: always() && (github.event_name == 'schedule' || (github.event_name == 'workflow_dispatch' && inputs.suite != 'pr'))
+    needs: [local, final]
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - uses: actions/download-artifact@v4
+        with:
+          path: ${{ runner.temp }}/downloaded
+      - name: Require all acceptance evidence
+        env:
+          SUITE: ${{ inputs.suite || 'nightly' }}
+        run: python3 -B tools/gitpickle_gates.py aggregate --suite "$SUITE" --input "$RUNNER_TEMP/downloaded" --evidence "$RUNNER_TEMP/acceptance"
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: acceptance
+          path: ${{ runner.temp }}/acceptance
+          if-no-files-found: error

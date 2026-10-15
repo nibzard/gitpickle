@@ -5,3 +5,5 @@ Appendix D.2 of `gitpickle.md` lists the initial decisions to resolve in task T0
 The workspace starts with inward dependencies and one executable. Product protocols remain unimplemented.
 
 See [domain boundaries and contracts](0001-domain-and-contracts.md) for the T002 decisions.
+
+See [the Git engine decision](0002-git-engine.md) for the bounded walgit spike and native Git fallback.

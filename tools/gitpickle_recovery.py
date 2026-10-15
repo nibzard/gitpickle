@@ -80,12 +80,11 @@ def point_info(root, key, repository_id=None):
             raise ValueError('invalid dependency')
         byte_count += obj['size']
         try:
-            payload = a.read(root, obj['key'])
+            with a.verified_file(root, obj['key'], obj['size']):
+                pass
         except FileNotFoundError:
             missing.append(obj['key'])
             continue
-        if len(payload) != obj['size']:
-            raise ValueError('object size mismatch')
     if 'wiki' in p and 'wiki' not in p['coverage']:
         raise ValueError('missing wiki coverage')
     wiki_complete = True

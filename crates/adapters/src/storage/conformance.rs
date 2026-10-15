@@ -3,7 +3,7 @@ use super::{digest, verified_get};
 use gitpickle_application::storage::*;
 use std::collections::BTreeSet;
 
-/// Prefixes cannot name an archive. All writes require conditional creation.
+/// Disposable prefixes isolate probes from archives.
 /// The caller supplies LOOPER_RESOURCE_PREFIX and a unique run identifier.
 #[derive(Clone, Debug)]
 pub struct TestScope {
@@ -27,9 +27,55 @@ impl TestScope {
     pub fn prefix(&self) -> &str {
         &self.prefix
     }
+    /// Nest a disposable scope inside an owner-authorized base prefix.
+    pub fn within(base: &str, resource_prefix: &str, run: &str) -> Result<Self> {
+        if !base.ends_with('/') || base.ends_with("//") {
+            return Err(StorageError::InvalidInput);
+        }
+        ObjectKey::new(base.trim_end_matches('/'))?;
+        let scope = Self::new(resource_prefix, run)?;
+        Ok(Self {
+            prefix: format!("{base}{}", scope.prefix),
+        })
+    }
     fn key(&self, name: &str) -> ObjectKey {
         ObjectKey::new(format!("{}{name}", self.prefix)).unwrap()
     }
+}
+
+/// Probe unconditional multipart only in an exclusively owned disposable scope.
+/// This does not establish immutable creation or concurrent publication safety.
+pub fn probe_unconditional_multipart(store: &mut impl Storage, scope: &TestScope) -> Result<()> {
+    let key = scope.key("unconditional-multipart");
+    require(store.get(&key) == Err(StorageError::NotFound))?;
+    let bytes = vec![42; 5 * 1024 * 1024 + 17];
+    let expected = digest(&bytes);
+    let upload = store.begin(&key, expected, Condition::Any)?;
+    let result = (|| {
+        store.part(&upload, 1, &bytes[..5 * 1024 * 1024])?;
+        store.part(&upload, 2, &bytes[5 * 1024 * 1024..])?;
+        require(store.get(&key) == Err(StorageError::NotFound))?;
+        require(!list_all(store, scope.prefix(), 1)?.contains(&key))?;
+        match store.complete(&upload, &[1, 2]) {
+            Ok(_) | Err(StorageError::UnknownOutcome) => {
+                verified_get(store, &key, expected)?;
+            }
+            Err(error) => return Err(error),
+        }
+        Ok(())
+    })();
+    let aborted = store.abort(&upload);
+    result?;
+    aborted?;
+    store.abort(&upload)?;
+    verified_get(store, &key, expected)?;
+    let key = scope.key("unconditional-aborted");
+    require(store.get(&key) == Err(StorageError::NotFound))?;
+    let upload = store.begin(&key, digest(b"aborted"), Condition::Any)?;
+    store.part(&upload, 1, b"aborted")?;
+    store.abort(&upload)?;
+    store.abort(&upload)?;
+    require(store.get(&key) == Err(StorageError::NotFound))
 }
 #[derive(Debug, Eq, PartialEq)]
 pub struct Report {

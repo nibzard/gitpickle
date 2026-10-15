@@ -2,6 +2,7 @@
 pub mod conformance;
 pub mod emulator;
 pub mod providers;
+pub mod publication;
 use gitpickle_application::storage::*;
 use sha2::{Digest, Sha256};
 

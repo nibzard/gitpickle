@@ -3,6 +3,7 @@ import ipaddress
 import os
 from pathlib import Path
 import signal
+import shutil
 import socket
 import subprocess
 import tempfile
@@ -56,19 +57,24 @@ GIT_OPTIONS = ['-c', 'core.hooksPath=/dev/null', '-c', 'core.fsmonitor=false',
 
 
 def run(command, *, input=None, env=None, timeout=3600, capture_output=True,
-        check=True, max_output=64 * 1024 * 1024):
+        check=True, max_output=64 * 1024 * 1024, output=None):
     """Bound elapsed time and output; kill the complete child group on failure.
 
     Output uses temporary files so a child cannot fill the parent's memory.
     A per-process file limit also bounds these files and generated pack files.
     prlimit applies limits before exec, without unsafe fork callbacks in threads.
+    An output sink receives file-backed output in fixed-size chunks. The file
+    limit still applies; max_output continues to bound captured diagnostics.
     """
     wrapped = ['prlimit', '--cpu=3600', '--fsize=17179869184', '--nofile=256',
                '--as=8589934592', '--', *command]
     with tempfile.TemporaryFile() as out, tempfile.TemporaryFile() as err, \
             tempfile.TemporaryFile() as source:
         if input is not None:
-            source.write(input)
+            if hasattr(input, 'read'):
+                shutil.copyfileobj(input, source, 64 * 1024)
+            else:
+                source.write(input)
             source.seek(0)
         process = subprocess.Popen(wrapped, stdin=source, stdout=out, stderr=err,
                                    env=env, start_new_session=True)
@@ -76,19 +82,24 @@ def run(command, *, input=None, env=None, timeout=3600, capture_output=True,
         deadline = time.monotonic() + timeout
         try:
             while process.poll() is None:
-                if time.monotonic() >= deadline or max(out.tell(), err.tell()) > max_output:
+                if time.monotonic() >= deadline or (output is None and out.tell() > max_output) or err.tell() > max_output:
                     raise subprocess.CalledProcessError(124, ['git'])
                 try:
                     process.wait(timeout=0.02)
                 except subprocess.TimeoutExpired:
                     pass
-            if max(out.tell(), err.tell()) > max_output:
+            if (output is None and out.tell() > max_output) or err.tell() > max_output:
                 raise subprocess.CalledProcessError(124, ['git'])
             if check and process.returncode:
                 raise subprocess.CalledProcessError(process.returncode, ['git'])
             out.seek(0)
             err.seek(0)
-            return subprocess.CompletedProcess(['git'], process.returncode, out.read(), err.read())
+            if output is not None:
+                shutil.copyfileobj(out, output, 64 * 1024)
+                result = None
+            else:
+                result = out.read()
+            return subprocess.CompletedProcess(['git'], process.returncode, result, err.read())
         finally:
             # Descendants must not outlive even a successful parent.
             try:

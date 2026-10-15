@@ -1,5 +1,6 @@
 //! Implement application ports for Git, GitHub, object storage, and SQLite.
 //! Provider types stay inside this crate.
+pub mod git_engine;
 pub mod storage;
 
 pub mod recovery;

@@ -41,6 +41,39 @@ class SecurityTests(unittest.TestCase):
             a.read(self.store, 'repos/escape')
         self.assertFalse((self.root / 'escape').exists())
 
+    def test_file_backed_process_output_has_bounded_writes(self):
+        class Sink:
+            count = 0
+            def write(inner, chunk):
+                self.assertLessEqual(len(chunk), 65536)
+                inner.count += len(chunk)
+        sink = Sink()
+        result = s.run([sys.executable, '-c',
+            'import sys; sys.stdout.buffer.write(b"x" * 200000)'],
+            output=sink, max_output=1024)
+        self.assertEqual(200000, sink.count)
+        self.assertIsNone(result.stdout)
+        with self.assertRaises(subprocess.CalledProcessError):
+            s.run([sys.executable, '-c',
+                'import sys; sys.stderr.buffer.write(b"x" * 200000)'],
+                output=sink, max_output=1024)
+
+    def test_verified_stream_pins_data_and_rejects_size_or_digest_errors(self):
+        data = b'verified payload'
+        key = 'repos/r/lfs/' + a.digest(data)
+        a.put(self.store, key, data)
+        with a.verified_file(self.store, key, len(data)) as source:
+            (self.store / key).write_bytes(b'changed on disk')
+            self.assertEqual(data, source.read())
+        with self.assertRaises(ValueError):
+            with a.verified_file(self.store, key, len(data)):
+                self.fail('corrupt payload accepted')
+        (self.store / key).write_bytes(data)
+        for size in (len(data) - 1, len(data) + 1, -1, True):
+            with self.assertRaises(ValueError):
+                with a.verified_file(self.store, key, size):
+                    self.fail('invalid size accepted')
+
     def test_private_state_and_root_rejection(self):
         private = s.private_directory(self.root / 'state')
         self.assertEqual(0o700, private.stat().st_mode & 0o777)

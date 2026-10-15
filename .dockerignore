@@ -1,0 +1,17 @@
+**
+!Cargo.toml
+!Cargo.lock
+!rust-toolchain.toml
+!crates/
+!crates/**
+!xtask/
+!xtask/**
+!tools/
+!tools/*.py
+!deploy/
+!deploy/systemd/
+!deploy/systemd/gitpickle.service
+!deploy/Dockerfile
+!deploy/compose.yaml
+!docs/
+!docs/deployment.md

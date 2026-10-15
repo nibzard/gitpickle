@@ -256,6 +256,9 @@ class Jobs:
         if point is not None:
             return point
         self.checkpoint(job['id'])
+        from gitpickle_hosted import state
+        if state(self.root, request['repository'])[1]['mode'] == 'hosted':
+            raise JobError('source_updates_paused')
         if 'github_id' in request['arguments']:
             if self.source_adapter is None:
                 raise JobError('authentication')
@@ -267,17 +270,21 @@ class Jobs:
 
     def observe(self, job, repo):
         """Refresh source refs without publishing or deleting retained history."""
-        refs = a.git(repo, 'for-each-ref', '--format=%(refname) %(objectname)').decode()
-        try:
-            head = {'symbolic': a.git(repo, 'symbolic-ref', 'HEAD').decode().strip()}
-        except subprocess.CalledProcessError:
-            head = {'detached': a.git(repo, 'rev-parse', 'HEAD').decode().strip()}
-        return a.record(self.root, 'control', {
-            'kind': 'control', 'archive_id': self.archive_id,
-            'operation_id': job['id'], 'record_type': 'source_tracking',
-            'recorded_at': a.timestamp(), 'predecessor': None,
-            'payload': {'repository_id': job['request']['repository'], 'refs': refs,
-                        'head': head, 'components': ['git']}})
+        from gitpickle_hosted import state
+        with self.writer.mutation(job['request']['repository']):
+            if state(self.root, job['request']['repository'])[1]['mode'] == 'hosted':
+                raise JobError('source_updates_paused')
+            refs = a.git(repo, 'for-each-ref', '--format=%(refname) %(objectname)').decode()
+            try:
+                head = {'symbolic': a.git(repo, 'symbolic-ref', 'HEAD').decode().strip()}
+            except subprocess.CalledProcessError:
+                head = {'detached': a.git(repo, 'rev-parse', 'HEAD').decode().strip()}
+            return a.record(self.root, 'control', {
+                'kind': 'control', 'archive_id': self.archive_id,
+                'operation_id': job['id'], 'record_type': 'source_tracking',
+                'recorded_at': a.timestamp(), 'predecessor': None,
+                'payload': {'repository_id': job['request']['repository'], 'refs': refs,
+                            'head': head, 'components': ['git']}})
 
     def _finish(self, job_id, future):
         job = copy.deepcopy(self.jobs[job_id])
