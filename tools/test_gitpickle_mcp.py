@@ -165,7 +165,7 @@ class MCPTests(unittest.TestCase):
             dict(jsonrpc='2.0', method='notifications/initialized'),
             dict(jsonrpc='2.0', id=2, method='tools/list'),
             dict(jsonrpc='2.0', id=3, method='tools/call', params=dict(name='repositories_list', arguments={}))]
-        executable = Path('target/debug/gitpickle').resolve()
+        executable = (Path(os.environ.get('CARGO_TARGET_DIR') or 'target') / 'debug' / 'gitpickle').resolve()
         command = [str(executable), 'mcp', '--profile', 'test'] if executable.exists() else [sys.executable, '-B', 'tools/gitpickle_mcp.py', '--profile', 'test']
         env = dict(os.environ, GITPICKLE_PROFILES=str(profile), TEST_AGENT_TOKEN='a' * 40)
         result = subprocess.run(command, input=''.join(json.dumps(r) + '\n' for r in requests),

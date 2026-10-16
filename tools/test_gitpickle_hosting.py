@@ -25,7 +25,7 @@ class HostingTests(unittest.TestCase):
         # Standalone Python runs also exercise the real Rust engine boundary.
         subprocess.run(['cargo', 'build', '--locked', '-p', 'gitpickle'], check=True,
                        stdout=subprocess.DEVNULL)
-        cls.binary = str(Path('target/debug/gitpickle').resolve())
+        cls.binary = str((Path(os.environ.get('CARGO_TARGET_DIR') or 'target') / 'debug' / 'gitpickle').resolve())
 
     def setUp(self):
         base = Path('fixtures/generated/hosting')

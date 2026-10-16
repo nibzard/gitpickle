@@ -133,7 +133,7 @@ def run():
     run_id = 't022-' + uuid.uuid4().hex[:24]
     base = artifact / run_id
     base.mkdir(mode=0o700)
-    executable = str(Path('target/debug/gitpickle').resolve())
+    executable = str((Path(os.environ.get('CARGO_TARGET_DIR') or 'target') / 'debug' / 'gitpickle').resolve())
     receipt = artifact / (run_id + '.json')
     state = dict(resource_prefix=prefix, uid=os.getuid(), run=run_id,
         object_prefix=BASE + prefix + '/recovery/' + run_id + '/', bucket=BUCKET,

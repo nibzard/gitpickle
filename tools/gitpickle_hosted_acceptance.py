@@ -33,7 +33,7 @@ def run():
         object_prefix=acceptance.BASE + prefix + '/recovery/' + run_id + '/',
         bucket=acceptance.BUCKET, endpoint=acceptance.ENDPOINT,
         journal=str(artifact / (run_id + '.jsonl')), cache=str(base / 'cache'),
-        executable=str(Path('target/debug/gitpickle').resolve()))
+        executable=str((Path(os.environ.get('CARGO_TARGET_DIR') or 'target') / 'debug' / 'gitpickle').resolve()))
     acceptance.validate(state, prefix)
     storage = resources.client()
     assert not storage.list_objects_v2(Bucket=state['bucket'], Prefix=state['object_prefix']).get('Contents')

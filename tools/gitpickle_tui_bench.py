@@ -78,7 +78,8 @@ def terminal_sample(binary, url, token):
 
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument('--binary', type=Path, default=Path('target/debug/gitpickle'))
+    parser.add_argument('--binary', type=Path,
+        default=Path(os.environ.get('CARGO_TARGET_DIR') or 'target') / 'debug' / 'gitpickle')
     parser.add_argument('--output', type=Path, default=Path('perf/results/tui/portfolio-404.json'))
     args = parser.parse_args()
     test = fixture.WorkflowTests()

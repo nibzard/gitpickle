@@ -25,7 +25,8 @@ class DeploymentTests(unittest.TestCase):
         configured = os.environ.get('GITPICKLE_TEST_BINARY')
         if not configured:
             subprocess.run(['cargo', 'build', '--locked', '-p', 'gitpickle'], check=True)
-        cls.binary = Path(configured or 'target/debug/gitpickle').resolve()
+        default = Path(os.environ.get('CARGO_TARGET_DIR') or 'target') / 'debug' / 'gitpickle'
+        cls.binary = Path(configured or default).resolve()
 
     def setUp(self):
         base = Path('tests/results/deployment')
