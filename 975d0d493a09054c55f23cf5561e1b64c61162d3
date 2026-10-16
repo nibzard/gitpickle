@@ -1,0 +1,28 @@
+# Context
+
+## Background
+Found during an unattended end-to-end test run executed in a private
+clone with CARGO_TARGET_DIR redirected. cargo xtask check failed 15
+Python tests: three errors were FileNotFoundError for
+target/debug/gitpickle, and the hosting suite failed with 503
+"Committed generation unavailable" because the gateway tests could
+not find the freshly built binary.
+
+## Why This Way
+Six tools duplicated the hardcoded relative path, so each site now
+reads CARGO_TARGET_DIR with the same default. Resolving through
+'cargo metadata --format-version 1' (as gitpickle_package.py does)
+would also honor a config-file build.target-dir, but the repository
+sets no such override, and the env lookup keeps test setup free of
+extra subprocess calls.
+
+## Gotchas
+- These helpers still require the working directory to be the
+  repository root; only the target directory moved.
+- GITPICKLE_TEST_BINARY still takes precedence in the deployment
+  tests and dist/ bundles use the release build path elsewhere.
+
+## Verification
+Reproduced the failure with CARGO_TARGET_DIR pointing at a fresh
+directory: hosting 16 OK, MCP 8 OK, deployment 4 OK; MCP also
+passed on the default path.
