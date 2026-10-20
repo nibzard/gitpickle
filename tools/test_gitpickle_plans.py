@@ -1,5 +1,6 @@
 """Approval bindings, durable single use, grant checks, and real Git restore."""
 from concurrent.futures import ThreadPoolExecutor
+from contextlib import contextmanager
 from dataclasses import replace
 import copy
 import json
@@ -9,10 +10,12 @@ import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from unittest.mock import patch
 
 import gitpickle_archive as a
+import gitpickle_hosted as hosted
 import gitpickle_plans as p
 
 
@@ -211,6 +214,53 @@ class PlanTests(unittest.TestCase):
             job = service.plan_apply(self.agent, preview['plan'], approval)
             service.execute(self.agent, job)
             self.assertTrue(Path(approved_destination).is_dir())
+
+    def test_restore_and_hosting_share_policy_then_repository_lock_order(self):
+        with self.service() as service:
+            preview, approval = self.approved(service)
+            job = service.plan_apply(self.agent, preview['plan'], approval)
+            role = threading.local()
+            restore_has_repository = threading.Event()
+            hosting_wants_policy = threading.Event()
+            policy_lock = self.policies.lock
+            mutation = service.writer.mutation
+            test = self
+
+            class TimedPolicyLock:
+                def __enter__(self):
+                    if getattr(role, 'name', None) == 'hosting':
+                        hosting_wants_policy.set()
+                    test.assertTrue(policy_lock.acquire(timeout=5), 'Policy/repository lock inversion')
+
+                def __exit__(self, *_):
+                    policy_lock.release()
+
+            @contextmanager
+            def pause_restore(repository):
+                with mutation(repository):
+                    if repository == 'r' and getattr(role, 'name', None) == 'restore':
+                        restore_has_repository.set()
+                        self.assertTrue(hosting_wants_policy.wait(5))
+                    yield
+
+            def restore():
+                role.name = 'restore'
+                return service.execute(self.agent, job)
+
+            def push():
+                role.name = 'hosting'
+                # Authorization denial occurs only after both locks are acquired.
+                with self.assertRaisesRegex(p.PlanError, 'forbidden'):
+                    hosted.receive(type('Hosting', (), {'plans': service})(), self.agent, 'r', b'')
+
+            with patch.object(self.policies, 'lock', TimedPolicyLock()), \
+                    patch.object(service.writer, 'mutation', pause_restore), \
+                    ThreadPoolExecutor(max_workers=2) as workers:
+                restored = workers.submit(restore)
+                self.assertTrue(restore_has_repository.wait(5))
+                pushed = workers.submit(push)
+                self.assertTrue(restored.result(timeout=10)['complete'])
+                pushed.result(timeout=10)
 
     def test_replay_concurrency_and_restart_do_not_repeat_execution(self):
         with self.service() as service:

@@ -69,9 +69,15 @@ fn main() -> ExitCode {
             "protect" | "backup" | "sync" | "jobs" | "hosting" | "portfolio" | "points" | "history"
         )
     ) || args[0] == "restore"
-        && !args.iter().any(|a| a == "--from-storage" || a == "--help")
+        && !args.iter().any(|a| {
+            a == "--from-storage"
+                || a.to_string_lossy().starts_with("--from-storage=")
+                || a == "--help"
+        })
         || matches!(args[0].to_str(), Some("status" | "doctor"))
-            && (args.iter().any(|a| a == "--server")
+            && (args
+                .iter()
+                .any(|a| a == "--server" || a.to_string_lossy().starts_with("--server="))
                 || std::env::var_os("GITPICKLE_SERVER").is_some())
     {
         match gitpickle_adapters::daemon::workflow(args) {
@@ -120,7 +126,13 @@ fn main() -> ExitCode {
                 ExitCode::from(5)
             }
         }
-    } else if args[0] == "restore" && args.iter().any(|a| a == "--from-storage" || a == "--help") {
+    } else if args[0] == "restore"
+        && args.iter().any(|a| {
+            a == "--from-storage"
+                || a.to_string_lossy().starts_with("--from-storage=")
+                || a == "--help"
+        })
+    {
         match gitpickle_adapters::recovery::run(args[1..].to_vec()) {
             Ok(code) => ExitCode::from(code),
             Err(error) => {

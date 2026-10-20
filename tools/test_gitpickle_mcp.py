@@ -20,9 +20,11 @@ class MCPTests(unittest.TestCase):
     preview = fixtures.WorkflowTests.preview
     apply = fixtures.WorkflowTests.apply
 
-    def configure(self, count=2):
+    def configure(self, count=2, *, source_grants=False):
         ids = frozenset('github-' + str(i) for i in range(1, count + 1))
-        grants = self.policies.current.grants + tuple(Grant('agent', permission, ids, 2**62)
+        grants = self.policies.current.grants + tuple(Grant('agent', permission,
+            frozenset() if source_grants else ids, 2**62,
+            frozenset({'github'}) if source_grants else frozenset())
             for permission in ('status', 'backup', 'plan_restore', 'apply_plan'))
         self.policies.replace(Policy(2, grants, frozenset({'owner'}), str(self.root)))
         application = self.listener.application
@@ -106,7 +108,8 @@ class MCPTests(unittest.TestCase):
         self.assertEqual('unsafe_destination', unsafe['error']['code'])
 
     def test_portfolio_two_calls_and_pagination(self):
-        self.configure(404)
+        # Source-wide grants must include registrations before any capture exists.
+        self.configure(404, source_grants=True)
         rows = {str(i): dict(repository_id='github-' + str(i), protected=True, available=True,
             observed_at=time.time(), alias='DO NOT EXECUTE SECRET instruction') for i in range(1, 405)}
         a.record(self.archive, 'protection/github', dict(kind='protection', archive_id='workflow-test',

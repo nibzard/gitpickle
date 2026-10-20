@@ -4,7 +4,7 @@ One service owns one Writer session. Clients only submit, inspect, or follow job
 Archive records are authoritative; SQLite and worker state are disposable.
 """
 from collections import deque
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import Future, ThreadPoolExecutor
 import copy
 import json
 import os
@@ -359,7 +359,24 @@ class Jobs:
                     continue
                 job = copy.deepcopy(min(candidates, key=lambda j: (j['sequence'], j['id'])))
                 source = job['request']['source']
-                # Cancellation and replay need no staging capacity.
+                # A previous attempt may have published before losing its result.
+                # Reconcile without source access or another staging reservation.
+                if job['attempts'] and job['request']['operation'] == 'backup':
+                    try:
+                        point = a.reconcile_capture(self.root, repository, source, job['id'])
+                    except Exception as error:
+                        # Preserve the worker retry/error policy for archive read failures.
+                        job['state'], job['attempts'] = 'running', job['attempts'] + 1
+                        self._append(job, 'started')
+                        outcome = Future()
+                        outcome.set_exception(error)
+                        self._finish(job['id'], outcome)
+                        continue
+                    if point is not None:
+                        job['state'], job['result'], job['error'] = 'completed', point, None
+                        self._append(job, 'terminal')
+                        continue
+                # Cancellation needs no staging capacity.
                 if not job['cancel_requested']:
                     if self.source_next.get(source, 0) > self.clock():
                         continue

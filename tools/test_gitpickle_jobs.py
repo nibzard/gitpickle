@@ -121,6 +121,49 @@ class JobsTests(unittest.TestCase):
             self.assertEqual('completed', service.inspect(job_id)['state'])
             self.assertEqual(1, len(a.inventory(self.store, 'r')))
 
+    def test_interrupted_capture_reconciles_before_disk_and_source_admission(self):
+        with self.service() as service:
+            service.interval = 3600
+            job_id = self.accept(service, staging_bytes=200)
+            def crash(name):
+                if name == 'after_publication':
+                    raise Crash(name)
+            with patch.object(a, 'boundary', crash):
+                service.tick()
+                with self.assertRaises(Crash):
+                    service.running[job_id].result(timeout=10)
+            service.running.clear()
+        shutil.rmtree(self.store / '.projection')
+        shutil.rmtree(self.repo)
+        with self.service(disk_free=lambda: 100) as service:
+            self.assertGreater(service.source_next['github'], self.now)
+            with patch.object(service, '_execute', side_effect=AssertionError('No source work needed')):
+                service.tick()
+            result = service.inspect(job_id)
+            self.assertEqual('completed', result['state'])
+            self.assertEqual(1, result['attempts'])
+            self.assertFalse(result['cancel_requested'])
+            self.assertEqual({}, service.running)
+            self.assertEqual(1, len(a.inventory(self.store, 'r')))
+            self.assertIsNotNone(result['result'])
+
+    def test_reconciliation_read_failure_uses_job_retry_policy(self):
+        with self.service(disk_free=lambda: 100) as service:
+            job_id = self.accept(service, staging_bytes=200)
+            job = service.inspect(job_id)
+            job['state'], job['attempts'] = 'running', 1
+            with service.lock:
+                service._append(job, 'started')
+            with patch.object(a, 'reconcile_capture', side_effect=OSError('Archive unavailable')):
+                service.tick()
+            result = service.inspect(job_id)
+            self.assertEqual('queued', result['state'])
+            self.assertEqual('storage_unavailable', result['error'])
+            self.assertEqual(2, result['attempts'])
+            self.assertGreater(result['ready_at'], self.now)
+            self.assertFalse(service.stopping)
+            self.assertEqual({}, service.running)
+
     def test_bounds_serialization_disk_and_fairness(self):
         gate = threading.Event()
         started = []

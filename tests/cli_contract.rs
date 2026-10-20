@@ -47,6 +47,45 @@ fn unsupported_commands_never_report_success() {
 }
 
 #[test]
+fn equals_form_options_select_recovery_and_management_handlers() {
+    let temporary = tempfile::tempdir().unwrap();
+    std::fs::write(
+        temporary.path().join("archive.json"),
+        r#"{"kind":"archive","archive_id":"equals-form","encryption":"none","version":1}"#,
+    )
+    .unwrap();
+    let output = Command::new(env!("CARGO_BIN_EXE_gitpickle"))
+        .args([
+            "restore",
+            &format!("--from-storage={}", temporary.path().display()),
+            "--inventory",
+            "--json",
+        ])
+        .env_remove("GITPICKLE_SERVER")
+        .output()
+        .unwrap();
+    assert!(output.status.success(), "{:?}", output);
+    assert!(
+        String::from_utf8(output.stdout)
+            .unwrap()
+            .contains(r#""archive_id": "equals-form""#)
+    );
+    for command in ["status", "doctor"] {
+        let output = Command::new(env!("CARGO_BIN_EXE_gitpickle"))
+            .args([command, "--server=http://127.0.0.1:1", "--help"])
+            .env_remove("GITPICKLE_SERVER")
+            .output()
+            .unwrap();
+        assert!(output.status.success(), "{:?}", output);
+        assert!(
+            String::from_utf8(output.stdout)
+                .unwrap()
+                .contains("--server")
+        );
+    }
+}
+
+#[test]
 fn installed_binary_recovers_without_checkout_source_or_database() {
     let temporary = tempfile::Builder::new()
         .prefix(&std::env::var("LOOPER_RESOURCE_PREFIX").unwrap_or_else(|_| "recovery-cli".into()))

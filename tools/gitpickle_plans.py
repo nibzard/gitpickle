@@ -339,7 +339,8 @@ class Plans:
             except PlanError as error:
                 self._audit(principal, 'restore', error.code)
                 raise
-        with self.writer.mutation(accepted['plan']['repositories'][0]), self._transaction() as policy:
+        # Match hosting mutations: policy authority precedes repository locking.
+        with self._transaction() as policy, self.writer.mutation(accepted['plan']['repositories'][0]):
             try:
                 plan = self._approved(principal, accepted['plan'], accepted['approval'], policy)
                 if self._event(job, 'started'):

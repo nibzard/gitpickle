@@ -95,9 +95,12 @@ class AgentTools:
         result = envelope(archive=plans.archive)
         binding = [principal.actor, policy.revision, name]
         if name in ('protection_status', 'repositories_list'):
+            registered = status.protection_state(plans.root, plans.archive)['repositories']
+            candidates = {r['repository_id'] for r in registered.values() if r['protected']}
+            if (plans.root / 'repos').exists():
+                candidates.update(path.name for path in (plans.root / 'repos').iterdir())
             granted = sorted(plans.granted_repositories(principal, 'status', policy,
-                [path.name for path in (plans.root / 'repos').iterdir()]
-                if (plans.root / 'repos').exists() else []))
+                candidates))
             ids = [args['repository']] if 'repository' in args else granted
             if not ids:
                 raise PlanError('forbidden')
