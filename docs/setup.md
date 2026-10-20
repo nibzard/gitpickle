@@ -28,8 +28,17 @@ No secret command-line arguments are supported. Noninteractive calls never promp
 Preview reads the authorized GitHub inventory. It stages secrets in `runtime-inputs.json`
 with mode `0600` inside the private output directory. Treat this file as a credential file.
 The separate `plan.json` and terminal output contain no credentials.
-The policy grants the human owner access to the listed repositories for one year.
-Future repositories require a separately reviewed policy update.
+The policy grants the human owner access to current and future GitHub repositories for one year.
+The setup review lists `authorized_sources: ["github"]` and the current repository IDs.
+This source grant covers protection, capture, status, and recovery. It grants no Git hosting permissions.
+Future capture starts only after you apply protection with `--all --include-future`.
+
+Existing policies with exact repository IDs keep their restricted scope.
+To enable future repositories, add `"sources": ["github"]` to the owner's reviewed grants
+for `protect`, `backup`, `sync`, `status`, `plan_restore`, and `apply_plan`.
+Keep the existing repository IDs and expiry. Increase the policy revision and restart the daemon.
+Review and apply a protection plan with `--all --include-future`.
+Setup does not overwrite an existing policy or upgrade its permissions automatically.
 
 Apply requires `--resume --apply` and confirmation; automation also requires `--yes`.
 It rechecks repository scope before installation. The target checks storage listing access,

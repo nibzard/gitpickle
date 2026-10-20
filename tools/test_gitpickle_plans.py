@@ -67,6 +67,21 @@ class PlanTests(unittest.TestCase):
         self.assertEqual(code, error.exception.code)
         self.assertFalse(Path(self.destination).exists())
 
+    def test_source_grants_preserve_actor_permission_scope_and_expiry(self):
+        grant = p.Grant('agent', 'status', frozenset({'explicit'}), 200, frozenset({'github'}))
+        policy = replace(self.policy, grants=(grant,))
+        with self.service() as service:
+            for repository in ('explicit', 'github-1', 'github-123456'):
+                service._require(self.agent, 'status', [repository], policy)
+            for repository in ('r', 'github-0', 'github-01', 'github-1-wiki', 'github-local', 'other-1'):
+                with self.subTest(repository=repository):
+                    self.denied('forbidden', lambda: service._require(self.agent, 'status', [repository], policy))
+            self.denied('forbidden', lambda: service._require(self.operator, 'status', ['github-1'], policy))
+            self.denied('forbidden', lambda: service._require(self.agent, 'apply_plan', ['github-1'], policy))
+            self.now = 200
+            self.denied('forbidden', lambda: service._require(self.agent, 'status', ['github-1'], policy))
+        self.denied('invalid_input', lambda: replace(grant, sources=frozenset({'unknown'})))
+
     def test_valid_plan_restores_real_git_and_audits_are_redacted(self):
         with self.service() as service:
             preview, approval = self.approved(service)

@@ -56,6 +56,8 @@ class SetupTests(unittest.TestCase):
             self.assertEqual(self.call(self.configured_args() + ['--resume'])[0], 0)
         policy = json.loads(json.loads(staged.read_text())['files']['policy.json'])
         self.assertTrue(all(g['repositories'] == ['github-123'] for g in policy['grants']))
+        self.assertTrue(all(g['sources'] == ['github'] for g in policy['grants']))
+        self.assertEqual(['github'], result['data']['plan']['runtime']['authorized_sources'])
 
     def test_configuration_uses_shared_github_credential_provider(self):
         def transport(url, headers):

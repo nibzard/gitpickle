@@ -258,7 +258,7 @@ class Protection:
                 'discovery_interval': discovery_interval}
         return {'plan': plan, 'confirmation': a.digest(a.encode(plan))}
 
-    def protect(self, preview, confirmation):
+    def protect(self, preview, confirmation, *, authorization=None):
         with self.jobs.lock:
             self.reload()
             plan = preview['plan']
@@ -276,6 +276,8 @@ class Protection:
                 raise JobError('plan_stale')
             value = copy.deepcopy(self.state)
             value['policy'] = copy.deepcopy(plan)
+            # Persist the applied setup reference before accepting capture jobs.
+            value['authorization'] = authorization
             self._merge(value, current)
             value['discovery_due'] = self.jobs.clock() + plan['discovery_interval']
             self.save(value)

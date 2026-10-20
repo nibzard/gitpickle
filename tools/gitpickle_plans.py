@@ -42,6 +42,11 @@ class Grant:
     permission: str
     repositories: frozenset
     expires_at: int
+    sources: frozenset = frozenset()
+
+    def __post_init__(self):
+        if not self.sources <= {'github'}:
+            raise PlanError('invalid_input')
 
 
 @dataclass(frozen=True)
@@ -111,12 +116,26 @@ class Plans:
         with self.policies.lock, self.writer.mutation(('execution', 'plans')):
             yield self.policies.current
 
-    def _require(self, principal, permission, repositories, policy):
+    def granted_repositories(self, principal, permission, policy, candidates=()):
+        """Expand trusted source grants only over concrete repository IDs."""
         granted = set()
         for grant in policy.grants:
             if (grant.actor == principal.actor and grant.permission == permission
                     and self.clock() < grant.expires_at):
                 granted.update(grant.repositories)
+                if 'github' in grant.sources:
+                    granted.update(repo for repo in candidates
+                                   if re.fullmatch(r'github-[1-9][0-9]*', repo))
+        return granted
+
+    def require_source(self, principal, permission, source, policy):
+        if not any(grant.actor == principal.actor and grant.permission == permission
+                   and self.clock() < grant.expires_at and source in grant.sources
+                   for grant in policy.grants):
+            raise PlanError('forbidden')
+
+    def _require(self, principal, permission, repositories, policy):
+        granted = self.granted_repositories(principal, permission, policy, repositories)
         if not repositories or not set(repositories) <= granted:
             raise PlanError('forbidden')
 

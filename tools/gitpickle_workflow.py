@@ -72,22 +72,33 @@ class Workflow:
                         self.plans._record(f'jobs/{job}/terminal', {'result': 'restore_failed'})
         self.restore_futures[job] = self.jobs.pool.submit(execute)
 
+    def _protection_actor(self):
+        self.protection.reload()
+        reference = self.protection.state.get('authorization')
+        if reference is None:
+            # Legacy records identify applied plans through durable results.
+            # An unconsumed preview never grants scheduling authority.
+            applied = {}
+            for path in (self.root / 'execution' / 'setup-results').glob('*'):
+                value = a.read(self.root, str(path.relative_to(self.root)), 'execution')
+                plan = self.plans._read(value['reference'], 'setup')['setup']
+                if plan['preview']['plan'] == self.protection.state['policy']:
+                    applied[plan['actor']] = value['reference']
+            if len(applied) == 1:
+                reference = next(iter(applied.values()))
+        if reference is None:
+            raise JobError('forbidden')
+        plan = self.plans._read(reference, 'setup')['setup']
+        if plan['preview']['plan'] != self.protection.state['policy']:
+            raise JobError('forbidden')
+        return plan['actor']
+
     def execute(self, jobs, job):
         """Revalidate the caller's current grant immediately before source access."""
-        actor = job['request']['actor']
-        if actor == 'protection':
-            self.protection.reload()
-            candidates = []
-            for path in (self.root / 'execution' / 'setup').glob('*'):
-                plan = a.read(self.root, str(path.relative_to(self.root)), 'execution')['setup']
-                if plan['preview']['plan'] == self.protection.state['policy']:
-                    candidates.append(plan['actor'])
-            if not candidates:
-                raise JobError('forbidden')
-            if len(set(candidates)) != 1:
-                raise JobError('forbidden')
-            actor = candidates[0]
-        with self.plans.policies.lock:
+        with self.lock, self.plans.policies.lock:
+            actor = job['request']['actor']
+            if actor == 'protection':
+                actor = self._protection_actor()
             try:
                 self.require(Principal(actor), job['request']['operation'],
                              [job['request']['repository']])
@@ -157,10 +168,10 @@ class Workflow:
                 raise PlanError('forbidden')
             if operation == 'portfolio':
                 self.protection.reload()
-                granted = {repo for g in self.plans.policies.current.grants
-                    if g.actor == principal.actor and g.permission == 'status'
-                    and self.plans.clock() < g.expires_at for repo in g.repositories}
                 result = status.calculate(self.root)
+                granted = self.plans.granted_repositories(principal, 'status',
+                    self.plans.policies.current,
+                    [row['repository_id'] for row in result['data']['repositories']])
                 rows = []
                 for row in result['data']['repositories']:
                     if row['repository_id'] in granted:
@@ -208,6 +219,9 @@ class Workflow:
                 prior_ids = [r['repository_id'] for r in self.protection.state['repositories'].values() if r['protected']]
                 self.require(principal, 'protect', sorted(set(ids + prior_ids)))
                 self.require(principal, 'backup', ids)
+                if preview['plan']['include_future']:
+                    for permission in ('protect', 'backup'):
+                        self.plans.require_source(principal, permission, 'github', self.plans.policies.current)
                 checks = self.probe()
                 self.protection.reload()
                 old = self.protection.state['policy']
@@ -226,6 +240,9 @@ class Workflow:
                 prior_ids = [r['repository_id'] for r in self.protection.state['repositories'].values() if r['protected']]
                 self.require(principal, 'protect', sorted(set(ids + prior_ids)))
                 self.require(principal, 'backup', ids)
+                if plan['preview']['plan']['include_future']:
+                    for permission in ('protect', 'backup'):
+                        self.plans.require_source(principal, permission, 'github', self.plans.policies.current)
                 if plan['actor'] != principal.actor:
                     raise PlanError('forbidden')
                 digest = a.digest(a.encode(plan))
@@ -237,7 +254,8 @@ class Workflow:
                 for path in (self.root / 'execution' / 'setup-results').glob('*'):
                     value = a.read(self.root, str(path.relative_to(self.root)), 'execution')
                     if value['reference'] == args['reference']:
-                        if self.protection.state['policy'] != plan['preview']['plan']:
+                        if (self.protection.state['policy'] != plan['preview']['plan']
+                                or self.protection.state.get('authorization') not in (None, args['reference'])):
                             raise PlanError('plan_stale')
                         return value['result']
                 if plan['expires_at'] <= time.time():
@@ -255,7 +273,8 @@ class Workflow:
                 if plan['all']:
                     if self.github.repositories() != desired['repositories']:
                         raise PlanError('plan_stale')
-                self.protection.protect(plan['preview'], plan['preview']['confirmation'])
+                self.protection.protect(plan['preview'], plan['preview']['confirmation'],
+                                        authorization=args['reference'])
                 # The scheduling slot is durable. A retry after a lost reply returns
                 # existing slot jobs instead of accepting another initial capture.
                 accepted = self.protection.tick(staging_bytes=self.staging_bytes)

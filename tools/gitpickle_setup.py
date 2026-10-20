@@ -174,7 +174,8 @@ def runtime_plan(args, plan, ask):
     sandbox = home + '/.local/state/gitpickle/restores' if home else '/var/lib/gitpickle/restores'
     expires = int(time.time()) + 365 * 86400
     policy = dict(revision=1, approvers=['owner'], sandbox=sandbox,
-        grants=[dict(actor='owner', permission=permission, repositories=ids, expires_at=expires)
+        grants=[dict(actor='owner', permission=permission, repositories=ids, expires_at=expires,
+                     sources=['github'])
                 for permission in ('protect', 'backup', 'sync', 'status', 'plan_restore', 'apply_plan')])
     values = dict(GITPICKLE_GITHUB_TOKEN=github, GITPICKLE_STORAGE_ACCESS_KEY=access,
         GITPICKLE_STORAGE_SECRET_KEY=storage_secret, GITPICKLE_SERVER_ID=uuid.uuid4().hex,
@@ -184,8 +185,10 @@ def runtime_plan(args, plan, ask):
     result = dict(files={'policy.json': json.dumps(policy, indent=2) + '\n', 'runtime.env': runtime},
         review=dict(storage=location, authorized_repositories=[inventory[i]['alias'] for i in sorted(inventory)],
                     repository_ids=ids, grants_expire_at_unix_seconds=expires, time_zone='UTC',
+                    authorized_sources=['github'],
                     bucket_creation=False, hosting=False, sandbox=sandbox,
-                    changes=['Create private runtime.env and policy.json', 'Grant owner access to listed repositories for one year'],
+                    changes=['Create private runtime.env and policy.json',
+                             'Grant owner access to current and future GitHub repositories for one year; future capture requires --include-future'],
                     protection='Configured only. Preview and authorize protection after starting the service.'))
     save(staged, (json.dumps(result, sort_keys=True) + '\n').encode())
     return result

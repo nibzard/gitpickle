@@ -343,10 +343,18 @@ root = Path.cwd()
 store = root / 'archive'
 a.initialize(store, 'management-cli')
 store.chmod(0o700)
+source = root / 'source.git'
+source.mkdir()
+a.git(source, 'init', '--bare', '--template=', '--initial-branch=main')
+for repository in ('github-123', 'explicit'):
+    a.capture(store, source, repository, 'local-fixture')
 sandbox = root / 'sandbox'
 sandbox.mkdir(mode=0o700)
 policy = root / 'policy.json'
-policy.write_text(json.dumps({'revision': 1, 'grants': [], 'approvers': [], 'sandbox': str(sandbox)}))
+policy.write_text(json.dumps({'revision': 1, 'grants': [
+    {'actor': 'reader', 'permission': 'status', 'repositories': [], 'sources': ['github'], 'expires_at': 2**62},
+    {'actor': 'reader', 'permission': 'status', 'repositories': ['explicit'], 'expires_at': 2**62}
+], 'approvers': [], 'sandbox': str(sandbox)}))
 policy.chmod(0o600)
 binary = root / 'gitpickle'
 import shutil
@@ -377,10 +385,22 @@ try:
         for token, expected in [('wrong', 401), ('t' * 40, 403)]:
             connection = http.client.HTTPConnection(host, port, timeout=3)
             try:
-                connection.request('POST', '/v1/management', json.dumps({'operation': 'status', 'arguments': {'repository': 'denied'}}), {'Authorization': 'Bearer ' + token})
+                connection.request('POST', '/v1/management', json.dumps({'operation': 'status', 'arguments': {'repository': 'denied'}}),
+                    {'Authorization': 'Bearer ' + token, 'X-GitPickle-Management-Version': '1', 'X-GitPickle-Result-Version': '1'})
                 response = connection.getresponse()
                 assert response.status == expected
                 assert token.encode() not in response.read()
+            finally:
+                connection.close()
+        for repository in ('github-123', 'explicit'):
+            connection = http.client.HTTPConnection(host, port, timeout=3)
+            try:
+                connection.request('POST', '/v1/management', json.dumps({'operation': 'status', 'arguments': {'repository': repository}}),
+                    {'Authorization': 'Bearer ' + 't' * 40, 'X-GitPickle-Management-Version': '1', 'X-GitPickle-Result-Version': '1'})
+                response = connection.getresponse()
+                body = response.read()
+                assert response.status == 200, body
+                assert json.loads(body)['result']['repository'] == repository
             finally:
                 connection.close()
         child.send_signal(signal.SIGTERM)

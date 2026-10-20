@@ -228,7 +228,7 @@ def main(argv=None):
             raise ValueError('invalid policy schema')
         sandbox = security.private_directory(config['sandbox'])
         grants = tuple(Grant(g['actor'], g['permission'], frozenset(g['repositories']),
-                             g['expires_at']) for g in config['grants'])
+                             g['expires_at'], frozenset(g.get('sources', []))) for g in config['grants'])
         policies = PolicyStore(Policy(config['revision'], grants, frozenset(config['approvers']), str(sandbox)))
         phase = 'runtime_credentials'
         tokens = json.loads(os.environ.pop('GITPICKLE_MANAGEMENT_TOKENS'))

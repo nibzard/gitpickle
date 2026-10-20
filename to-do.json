@@ -378,6 +378,9 @@
         "tools/gitpickle_recovery.py",
         "tools/test_gitpickle_recovery.py"
       ],
+      "tags": [
+        "looper:finding:guided-storage-only-recovery"
+      ],
       "updated_at": "2026-10-15T08:08:18Z"
     },
     {

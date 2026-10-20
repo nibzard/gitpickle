@@ -10,6 +10,10 @@ See [the model contract](../spec/README.md#authorized-execution-plans) for assum
 The server constructs `Principal` from authenticated identity and transport context.
 An agent cannot supply its actor, its channel, grants, or policy configuration through tool arguments.
 `PolicyStore` comes from trusted configuration. Its grants contain actor, permission, repository IDs, and expiry.
+An optional `sources: ["github"]` grant also covers repository IDs of the form `github-123`.
+It does not cover local repositories, wiki IDs, other actors, or other permissions.
+The grant has the same expiry and revocation checks as an exact repository grant.
+Only the trusted policy can supply source grants. A protection preview cannot create one.
 `plan_restore` and `apply_plan` are separate permissions. Both require the entire repository scope.
 The approver must appear in the current policy and use a trusted session.
 An agent session cannot approve a plan, even when its actor appears in the approver list.
@@ -23,6 +27,17 @@ Transport authentication and configuration persistence belong to the daemon inte
 The local Model Context Protocol (MCP) transport in T024 must expose only the constrained service methods.
 Never expose `approve`, `PolicyStore`, or the raw recovery adapter as agent tools.
 The offline recovery adapter remains available to an operator with archive access.
+
+## Scheduled capture authority
+
+Applying protection stores the setup reference in the durable protection record before scheduling jobs.
+Scheduled captures use that applied plan's actor and recheck the current capture grant before source access.
+Other operators' previews do not change that actor. Applying another plan explicitly transfers authority.
+Plans that include future repositories require live GitHub source grants for `protect` and `backup`.
+
+Legacy protection records without a setup reference use completed setup results to identify one applied actor.
+Unused previews never supply authority. If legacy results identify different actors, prepare and apply a new protection plan.
+That new plan records an explicit actor. A lost apply response preserves the durable setup reference.
 
 ## Review and execution
 

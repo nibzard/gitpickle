@@ -176,17 +176,16 @@ stage. Development continues under the working name.
 6. Apply any rename across the README, docs, and package names.
 7. Mark T033 done.
 
-## Also open: one code defect
+## Authorization defect follow-up
 
-The final review confirmed a real defect with executable evidence:
-repositories added after setup fail capture authorization when
-`include_future` is enabled. `tools/gitpickle_setup.py:172-178` grants
-only the initial repository identifiers. The finding is recorded on T015,
-which is already done. No open task carries the fix.
+The review found that new repositories failed capture authorization with `include_future` enabled.
+Setup now generates explicit GitHub source grants. Exact repository policies remain restricted.
+Existing installations need the reviewed [policy update](setup.md#runtime-configuration-without-editing-files)
+before enabling future repositories.
 
-Fix it before T032, because study scenarios use partial authorization.
-Either fix `tools/gitpickle_setup.py` directly, or add a small task entry
-to `to-do.json` so Looper schedules the repair.
+Scheduled capture also binds its actor to the applied protection plan.
+Another operator's unused preview cannot change that actor.
+Workflow regression tests cover capture, restart, expiry, revocation, and lost apply results.
 
 ## Note on the running daemon
 

@@ -1,5 +1,6 @@
 """Workflow acceptance through shared services and the real HTTP client."""
 import contextlib
+from dataclasses import replace
 import io
 import json
 import os
@@ -18,6 +19,7 @@ import gitpickle_archive as a
 import gitpickle_daemon as daemon
 from gitpickle_github import GitHub
 from gitpickle_jobs import Jobs
+from gitpickle_jobs import JobError
 from gitpickle_plans import Grant, Plans, PlanError, Policy, PolicyStore, Principal
 import gitpickle_workflow as w
 
@@ -128,6 +130,120 @@ class WorkflowTests(unittest.TestCase):
         self.assertEqual([], self.workflow.protection.tick(staging_bytes=1024))
         self.assertEqual(2, len(self.jobs.jobs))
         self.assertEqual([], list((self.archive / '.projection').glob('probe-*')))
+
+    def test_future_repository_captures_and_remains_visible_after_restart(self):
+        policy = self.policies.current
+        self.policies.replace(replace(policy, revision=2,
+            grants=tuple(replace(g, sources=frozenset({'github'})) for g in policy.grants)))
+        preview = self.client.call('protect_preview', dict(repositories=None, all=True, include_future=True))
+        self.apply(preview)
+        self.rows['3'] = dict(id=3, alias='alice/new', has_wiki=False)
+        self.workflow.protection.sync()
+        new = self.workflow.protection.tick(staging_bytes=1024)
+        self.assertEqual(['github-3'], [j['request']['repository'] for j in new])
+        # Reconstruct the workflow from durable records, with no preview cache.
+        self.jobs.source_adapter = self.workflow.source
+        self.workflow = w.Workflow(self.plans, self.jobs, self.workflow.github, 1024)
+        self.listener.application.workflow = self.workflow
+        self.jobs.start()
+        job = self.jobs.follow(new[0]['id'])
+        self.assertEqual('completed', job['state'], job)
+        self.assertEqual(preview['reference'], self.workflow.protection.state['authorization'])
+        from gitpickle_agent import AgentTools
+        listed = AgentTools(self.plans, self.workflow).call(self.principal, 'repositories_list', {'limit': 50})
+        self.assertIn('github-3', listed['scope']['repository_ids'])
+        self.assertIn('github-3', [row['repository_id'] for row in self.client.call('portfolio', {})])
+        self.assertEqual('github-3', self.client.call('workflow_resolve', {'alias': 'alice/new'}))
+        self.assertIn('3', self.client.call('workflow_inventory', {}))
+        self.assertIn('github-3', [row['repository_id'] for row in self.client.call('restore_inventory', {})])
+        self.assertTrue(self.client.call('protect_preview',
+            dict(repositories=None, all=True, include_future=True))['reference'])
+
+    def test_future_scope_requires_live_source_grants(self):
+        args = dict(repositories=None, all=True, include_future=True)
+        with self.assertRaisesRegex(PlanError, 'forbidden'):
+            self.client.call('protect_preview', args)
+        policy = self.policies.current
+        self.policies.replace(replace(policy, revision=2,
+            grants=tuple(replace(g, sources=frozenset({'github'})) for g in policy.grants)))
+        preview = self.client.call('protect_preview', args)
+        self.apply(preview)
+        self.rows['3'] = dict(id=3, alias='alice/new', has_wiki=False)
+        self.workflow.protection.sync()
+        job = self.workflow.protection.tick(staging_bytes=1024)[0]
+        source = self.workflow.source
+        for revision, grants in ((3, policy.grants),
+                (4, tuple(replace(g, expires_at=0, sources=frozenset({'github'})) for g in policy.grants))):
+            with self.subTest(revision=revision):
+                self.policies.replace(replace(policy, revision=revision, grants=grants))
+                with patch.object(source, 'execute') as execute:
+                    with self.assertRaisesRegex(JobError, 'forbidden'):
+                        self.workflow.execute(self.jobs, job)
+                    execute.assert_not_called()
+
+    def test_unapplied_operator_preview_cannot_change_capture_owner(self):
+        policy = self.policies.current
+        other = tuple(replace(g, actor='operator2') for g in policy.grants)
+        self.policies.replace(replace(policy, revision=2, grants=policy.grants + other))
+        applied = self.preview(all=True)
+        self.apply(applied)
+        other_preview = self.workflow.call(Principal('operator2'), 'protect_preview',
+            dict(repositories=None, all=True, include_future=False))
+        self.jobs.start()
+        for job in list(self.jobs.jobs):
+            result = self.jobs.follow(job)
+            self.assertEqual('completed', result['state'], result)
+        self.assertEqual(applied['reference'], self.workflow.protection.state['authorization'])
+        # Applying a plan explicitly transfers authority, even for equal settings.
+        self.workflow.call(Principal('operator2'), 'protect_apply',
+            dict(reference=other_preview['reference'], digest=other_preview['digest']))
+        with self.assertRaisesRegex(PlanError, 'plan_stale'):
+            self.apply(applied)
+        self.policies.replace(replace(policy, revision=3, grants=other))
+        job = next(iter(self.jobs.jobs.values()))
+        with patch.object(self.workflow.source, 'execute', return_value='captured'):
+            self.assertEqual('captured', self.workflow.execute(self.jobs, job))
+
+    def test_legacy_capture_owner_comes_from_applied_results(self):
+        policy = self.policies.current
+        other = tuple(replace(g, actor='operator2') for g in policy.grants)
+        self.policies.replace(replace(policy, revision=2, grants=policy.grants + other))
+        self.apply(self.preview(all=True))
+        value = dict(self.workflow.protection.state)
+        value.pop('authorization')
+        self.workflow.protection.save(value)
+        self.workflow.call(Principal('operator2'), 'protect_preview',
+            dict(repositories=None, all=True, include_future=False))
+        job = next(iter(self.jobs.jobs.values()))
+        with patch.object(self.workflow.source, 'execute', return_value='captured'):
+            self.assertEqual('captured', self.workflow.execute(self.jobs, job))
+
+    def test_lost_apply_result_retains_capture_owner(self):
+        preview = self.preview(all=True)
+        record = self.plans._record
+        def interrupt(category, value):
+            if category == 'setup-results':
+                raise OSError('lost result')
+            return record(category, value)
+        with patch.object(self.plans, '_record', side_effect=interrupt):
+            with self.assertRaises(OSError):
+                self.workflow.call(self.principal, 'protect_apply',
+                    dict(reference=preview['reference'], digest=preview['digest']))
+        job = next(iter(self.jobs.jobs.values()))
+        with patch.object(self.workflow.source, 'execute', return_value='captured'):
+            self.assertEqual('captured', self.workflow.execute(self.jobs, job))
+        self.assertEqual(preview['reference'], self.workflow.protection.state['authorization'])
+        self.assertTrue(self.apply(preview)['jobs'])
+
+    def test_legacy_unused_preview_cannot_authorize_capture(self):
+        preview = self.preview(all=True)
+        plan = preview['plan']['preview']
+        self.workflow.protection.protect(plan, plan['confirmation'])
+        job = self.workflow.protection.tick(staging_bytes=1024)[0]
+        with patch.object(self.workflow.source, 'execute') as execute:
+            with self.assertRaisesRegex(JobError, 'forbidden'):
+                self.workflow.execute(self.jobs, job)
+            execute.assert_not_called()
 
     def test_all_inventory_change_is_stale_and_policy_change_is_stale(self):
         preview = self.preview(all=True)

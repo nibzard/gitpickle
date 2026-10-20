@@ -53,8 +53,9 @@ The linked documents describe fixtures, implementation boundaries, and evidence 
 
 The [compatibility matrix](compatibility.md) records provider and protocol boundaries.
 R2 supports the verified publication path. S3 has deterministic adapter coverage and requires live final acceptance.
-B2 remains recovery-only because this adapter does not establish conditional creation.
-Do not infer B2 publication from an S3-compatible endpoint. T054 must retain this explicit capability gate.
+B2 supports content-addressed publication and recovery under the single-writer contract.
+It does not support conditional creation. Live B2 acceptance remains pending T054.
+See [B2 publication](storage-providers.md#b2-archive-publication) for the capability gate and physical key layout.
 Live private GitHub wiki transport remains unverified; local wiki fixtures on R2 establish linked recovery only.
 
 ## Repeat local validation
