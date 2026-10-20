@@ -1,0 +1,9 @@
+Future GitHub repositories need trusted source grants. Existing exact grants
+remain restricted and require a reviewed policy update for future capture.
+Scheduled jobs use the durable applied setup reference. Legacy records use
+completed setup results; unused previews cannot grant capture authority.
+
+Validation: cargo xtask check passes, including Rust checks and 268 Python
+tests. Regression coverage includes restart, revocation, expiry, ownership
+transfer, and lost apply results. The task record tag was included as
+requested with all working tree changes.
