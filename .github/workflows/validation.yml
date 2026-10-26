@@ -48,7 +48,9 @@ jobs:
           if test "$code" -eq 2 && test "$SUITE" != pr; then exit 0; fi
           exit "$code"
       - name: Compare both clean baselines
-        if: github.event_name == 'pull_request'
+        # Skipped until vars.GITPICKLE_RELEASE_BASELINE is set: the step
+        # cannot compare against a baseline that does not exist.
+        if: github.event_name == 'pull_request' && vars.GITPICKLE_RELEASE_BASELINE != ''
         env:
           MERGE_BASE: ${{ github.event.pull_request.base.sha }}
           CANDIDATE: ${{ github.event.pull_request.head.sha }}
