@@ -3,8 +3,13 @@ on:
   pull_request:
   push:
     branches: [main]
-  schedule:
-    - cron: '23 2 * * *'
+  # Nightly schedule suspended: the final stages need the self-hosted
+  # runner gitpickle-pve2, which is not registered. Scheduled runs queued
+  # the finals for ~24h (timeout), cancelled them, and failed acceptance.
+  # Run the nightly suite manually with workflow_dispatch suite=nightly
+  # while the runner is away.
+  # schedule:
+  #   - cron: '23 2 * * *'
   workflow_dispatch:
     inputs:
       suite:
